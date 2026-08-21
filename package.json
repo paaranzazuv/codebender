@@ -5,6 +5,10 @@
   "version": "0.7.5",
   "publisher": "paaranzazuv",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paaranzazuv/codebender.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -601,6 +605,6 @@
   "scripts": {
     "test": "node --test",
     "check": "node --check extension.js && node --check hunks.js && node --check git-versioning.js && node --check git-staging.js && node --check agent-send.js && node --check tracking-pause.js && node --check review-state.js",
-    "package": "vsce package --no-rewrite-relative-links"
+    "package": "vsce package"
   }
 }
