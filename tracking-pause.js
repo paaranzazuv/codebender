@@ -2,6 +2,9 @@
 
 function stateSignature(entry) {
   if (!entry || entry.exists === false) return 'missing';
+  // Preferir el hash normalizado: para archivos de texto, diferencias puramente
+  // de EOL/BOM (p.ej. un checkout Git con autocrlf) no cuentan como cambio real.
+  if (entry.reviewHash) return `review:${entry.reviewHash}`;
   if (entry.hash) return `hash:${entry.hash}`;
   return `meta:${Number(entry.size || 0)}:${Number(entry.mtime || 0)}`;
 }

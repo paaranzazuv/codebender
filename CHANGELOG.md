@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.6
+
+- Fixed pause/resume tracking picking up Git-ignored files (e.g. IDE-managed `.vscode/settings.json`) as pending review changes. Files with no prior baseline that are ignored by Git are now skipped by the pause/resume scan, matching the live-tracking behavior.
+- Fixed pause/resume change detection comparing files by raw content hash instead of the EOL/BOM-normalized hash used everywhere else in the review engine. A file whose only difference during a pause was line-ending normalization (e.g. from a Git checkout with `autocrlf`) is no longer silently absorbed as a real change.
+- Added regression tests for both fixes.
+
 ## 0.7.5
 
 - Added `✓ Accept all changes in file` and `↶ Reject all changes in file` quick actions to each normal changed file in the Review Changes tree.

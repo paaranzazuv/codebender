@@ -1,211 +1,287 @@
-[English](README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md)
+<p align="center">
+  <img src="media/icon.png" alt="CodeBender" width="112" />
+</p>
 
-> **0.7.5 行为：** **Review Changes** 树现在提供 `✓ 接受该文件的所有更改` 和 `↶ 拒绝该文件的所有更改` 两个可选的文件级批量快捷操作。内联审查仍严格按变更块（hunk）执行。
+<h1 align="center">CodeBender</h1>
 
-> **0.7.4 行为：** 保留 0.7.3 的“仅新更改”审查门控，并修复 **请求修正**，使所选代码块的反馈作为一条完整终端消息发送给编码代理。
+<p align="center">
+  <strong>面向 AI 编程代理的人机协同代码审查工具，直接运行在 VS Code 中。</strong>
+</p>
 
+<p align="center">
+  将 AI 生成的修改以独立的内联变更块形式呈现。接受、拒绝、加入暂存区，或把某个变更块连同反馈发回代理，而不会失去对文件其余部分的控制。
+</p>
 
-> **0.7.2 修复：** 当 Git 与工作区使用不同换行符时，仅打开文件不会再产生“整个文件已更改”的误报；接受、拒绝和 Stage 仍严格按代码块执行。
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="README.es.md">Español</a> ·
+  <a href="README.zh-CN.md"><strong>简体中文</strong></a>
+</p>
 
-# CodeBender
+<p align="center">
+  <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%5E1.85.0-007ACC?logo=visualstudiocode&logoColor=white" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.7.6-4C8BF5" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-green" />
+  <img alt="Git-first" src="https://img.shields.io/badge/baseline-Git--first-F05032?logo=git&logoColor=white" />
+  <img alt="Provider neutral" src="https://img.shields.io/badge/agents-provider--neutral-7B61FF" />
+</p>
 
-**面向 AI 编程代理的人机协同代码审查工具——直接运行在 VS Code 中。**
+---
 
-CodeBender 会把 AI 编程代理产生的代码修改转换为原始源文件中的可审查内联变更块。你可以逐块接受或拒绝修改，可选择将已接受代码加入 Git 暂存区，把某个变更块连同反馈发回代理，在待审变更之间导航，并使用 Git 保留轻量级审查历史。
+## 为什么选择 CodeBender
 
-> CodeBender 与模型供应商无关。它可以配合 Claude Code、Codex、Kimi Code、Gemini CLI、OpenCode、VS Code 当前集成终端或自定义 CLI 适配器使用。
+AI 编程代理修改代码库的速度可能超出人工能够舒适审查的范围。问题不在于生成代码本身，而在于**对最终保留下来的内容保持精确的人工控制**。
 
-## CodeBender 解决什么问题
-
-AI 编程代理可以在很短时间内修改大量文件。CodeBender 在这些修改与代码库最终状态之间增加了一层人工审批。
+CodeBender 在 AI 代理与你的工作区之间加入了一层审查：
 
 ```text
 AI 编程代理
       ↓
-修改 workspace 文件
+修改工作区文件
       ↓
-CodeBender 检测变更块
+CodeBender 只检测本次会话产生的新变更
       ↓
-┌────────────────────────────────────────────┐
-│  AI: Claude Code · 块 2/5                 │
-│                                            │
-│  ✓ 接受       ⎇ 接受 + Stage             │
-│  ↶ 拒绝       💬 请求修正                  │
-│                                            │
-│  已修改代码                                │
-└────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ 变更块 1                                     │
+│ ✓ 接受   ⎇ 接受 + Stage   ↶ 拒绝            │
+│ 💬 请求修正                                  │
+└──────────────────────────────────────────────┘
       ↓
-人工决策
+┌──────────────────────────────────────────────┐
+│ 变更块 2                                     │
+│ ✓ 接受   ⎇ 接受 + Stage   ↶ 拒绝            │
+│ 💬 请求修正                                  │
+└──────────────────────────────────────────────┘
       ↓
-Git / 代理反馈循环
+由人工掌控的最终结果
 ```
 
-目标是在保持供应商中立的同时，通过 VS Code 公开扩展 API 提供接近现代 AI 编程助手的逐块审查体验。
+一个包含三处独立修改的文件，始终对应**三个独立的审查决策**。
+
+CodeBender 的设计目标是贴近 AI 编程助手普及开来的逐块审查体验，同时保持**与供应商无关**，并构建在公开的 VS Code 扩展 API 之上。
 
 ---
 
-## CodeBender 0.7.2 新特性
+## 核心亮点
 
-0.7.2 保留 0.7.0 的 Git-first 快速启动，同时把审查模型恢复为 **严格的逐块决策**。
+### 逐块审查变更
 
-### 逐块审查与可选的文件批量快捷操作
+每个新的变更块（hunk）都可以直接在源文件中审查：
 
-内联审查仍严格按 hunk 执行。打开源文件后可以直接对每个 hunk 操作：
+- **接受** — 只保留所选的变更块。
+- **接受 + Stage** — 接受并只将该变更块加入暂存区。
+- **拒绝** — 只将该变更块还原为会话基线。
+- **请求修正** — 只把该变更块、其上下文和你的说明发回所选的编码代理。
 
-- **接受** — 仅接受当前选中的块。
-- **接受 + Stage** — 仅接受并暂存当前选中的块。
-- **拒绝** — 仅恢复当前选中的块。
-- **请求修正** — 仅把当前块发送回配置的代理。
+接受一个变更块不会自动接受文件中的其余部分。
 
-在 **Review Changes** 树中，CodeBender 还为普通文件提供两个明确的批量快捷操作：**接受该文件的所有更改** 和 **拒绝该文件的所有更改**。无需打开文件即可一次处理该文件中所有待审查块；这不会改变内联控件逐块处理的行为。
+### 无需打开文件的批量操作
 
-如果文件被完全删除，由于已经没有源文档可渲染 CodeLens，该删除会被视为一个删除块，并在树中提供对应的块级操作。
-
-### 修复 Accept + Stage
-
-0.7.0 的快速 baseline 在会话开始前已有本地工作时，可能与真实 Git index 不同。旧的安全检查因此会过度拒绝部分暂存。
-
-0.7.2 会把选中的审查 hunk 应用到 **当前 Git index 内容**，而不是用完整审查 baseline 覆盖 staged 文件。这样可以保留不相关的 staged 修改，也不会把会话开始前的 unstaged 工作一起加入 staging。如果选中块与已有修改发生不兼容重叠，CodeBender 会在写入 index 前安全中止。
-
-### 自动化回归测试
-
-源码包现在包含 Node 测试，覆盖独立 hunks、Accept + Stage、会话前 staged/unstaged 修改、插入、删除以及安全冲突处理。
-
----
-
-## CodeBender 0.7.0 新特性
-
-0.7.0 重点改进 **启动性能、Git-first 版本管理以及 snapshot 可靠性**。
-
-### Git-first 延迟 baseline
-
-在 Git workspace 中，开始审查会话时，CodeBender 不再需要把整个项目复制到 VS Code global storage。
-
-#### 干净仓库
-
-CodeBender 可以直接复用当前 `HEAD` 作为审查 baseline。
+**Review Changes** 视图还提供可选的文件级快捷操作：
 
 ```text
-开始审查会话
+src/auth.ts                         ✓   ↶
+src/api/users.ts                    ✓   ↶
+src/components/Login.tsx            ✓   ↶
+```
+
+- `✓` **接受该文件的所有更改**
+- `↶` **拒绝该文件的所有更改**
+
+这些是明确的批量操作。内联审查依旧严格按变更块进行。
+
+### Git-first 启动
+
+对于 Git 仓库，CodeBender 会在会话开始前避免复制整个项目。
+
+```text
+启动审查会话
         ↓
 检测到 Git 仓库
         ↓
-working tree 干净
+工作区是否干净？── 是 ──→ 直接复用 HEAD 作为基线
+        │
+        否
         ↓
-HEAD 成为 baseline
+使用隔离的 Git 索引捕获精确的初始状态
         ↓
 就绪
 ```
 
-无需对整个项目做物理备份。
+原始内容只针对与本次审查相关的文件按需惰性加载。
 
-#### 已存在本地未提交修改
+### 仅审查新变更
 
-如果开始会话前已经有未提交工作，CodeBender 会使用 **隔离的临时 Git index** 和内部 checkpoint 精确保留起始状态。
+会话基线在你点击 **启动审查会话** 时被冻结。
 
-```text
-HEAD
- +
-会话开始前的本地修改
-        ↓
-临时 Git index
-        ↓
-CodeBender baseline checkpoint
-```
+打开、激活、切换到或仅仅查看某个文件**不会**产生审查操作。CodeBender 只标记会话开始之后出现的变更。
 
-创建该 checkpoint 不会占用或覆盖真实 Git staging area。
+### 安全的部分暂存
 
-#### 延迟加载文件内容
+`接受 + Stage` 只作用于所选的变更块，而不是把整个文件加入暂存区。当所选变更块可以被安全应用时，已有的暂存内容会被保留。
 
-只有当某个文件真正参与审查决策时，CodeBender 才读取它的原始内容。
+如果 CodeBender 检测到不安全的重叠，会在修改 Git 索引之前停止操作。
 
-例如，一个仓库有 10,000 个文件，而代理只修改了 4 个文件，CodeBender 不需要预先读取和复制全部 10,000 个文件。
+### 把变更块发回代理
 
-```text
-10,000 文件的 Git 仓库
-        ↓
-Git baseline
-        ↓
-代理修改 auth.ts
-        ↓
-仅加载 auth.ts 的 baseline
-        ↓
-计算审查块
-```
+`请求修正` 会发送一条结构化消息，包含：
 
-### 更快刷新
+- 你的说明放在最前面；
+- 所选的文件与变更块；
+- 修改后的代码；
+- 最少量的周边上下文；
+- 明确要求不要重写其他待审变更块的规则。
 
-对于 Git 管理的根目录，CodeBender 会优先向 Git 查询变更路径，而不是反复扫描并哈希整个 workspace。
-
-### 更可靠的 snapshot fallback
-
-未被 Git 管理的目录仍使用文件 snapshot 引擎。0.7.0 中：
-
-- 在并发 worker 启动之前先创建 snapshot 存储目录；
-- `snapshots` 和 `undo` 目录只初始化一次；
-- 常见依赖和构建目录默认继续排除；
-- 避免此前可能出现的 `ENOENT ... globalStorage/.../snapshots/...` 启动竞态问题。
-
-### 更少的自动 Git 工作
-
-`codeBender.git.checkpointOnDecision` 默认值现在为 `false`。
-
-因此，每次接受或拒绝单个变更块时，不会自动再创建一个 Git checkpoint，除非你主动开启该行为。
+多行提示会以单条终端输入的形式发送，使用 bracketed paste 语义。
 
 ---
 
-## 核心功能
+## 支持的编程代理
 
-### 文件内逐块审查
+CodeBender 与供应商无关。内置的终端适配器支持：
 
-同一源文件中的独立修改会保持为独立的审查决策。
+| 代理 | 默认命令 |
+|---|---|
+| Claude Code | `claude` |
+| OpenAI Codex | `codex` |
+| Kimi Code | `kimi` |
+| Gemini CLI | `gemini` |
+| OpenCode | `opencode` |
+| 当前终端 | 已有的 VS Code 终端 |
+| 自定义 CLI | 可配置适配器 |
 
-每个待处理 hunk 都可以在修改代码上方显示 CodeLens 操作，并在编辑器 gutter 中显示标记。
+使用这些集成无需 API key。CodeBender 通过你已经在用的本地终端工作流与代理通信。
 
-- **接受** — 仅将该块保留为新的审查 baseline。
-- **接受 + Stage** — 接受该块，并在 Git 安全检查通过后把已接受状态安全加入暂存区。
-- **拒绝** — 只把该块恢复到 baseline 状态。
-- **请求修正** — 为该块生成上下文，并把你的反馈发送到选定的编程代理终端。
+---
 
-示例：
+## 安装
+
+### 从 VSIX 安装
+
+1. 下载 `codebender-0.7.6.vsix`。
+2. 打开 VS Code。
+3. 按下 `Ctrl+Shift+P` / `Cmd+Shift+P`。
+4. 运行 **Extensions: Install from VSIX...**。
+5. 选择下载的文件。
+6. 如果 VS Code 没有自动重新加载，运行 **Developer: Reload Window**。
+
+### 环境要求
+
+- VS Code `1.85.0` 或更高版本。
+- 强烈建议安装 Git，以启用快速基线、历史记录、检查点和部分暂存功能。
+- 支持的本地编程代理 CLI 是可选的，仅 **请求修正** 功能需要。
+
+---
+
+## 快速开始
+
+### 1. 打开一个项目
+
+打开项目文件夹——而不仅仅是单个文件。
+
+### 2. 启动一个审查会话
+
+运行：
 
 ```text
-文件: src/auth.ts
-
-✓ 接受   ⎇ 接受 + Stage   ↶ 拒绝   💬 请求修正
-────────────────────────────────────────────────
-块 1
-修改后的身份验证逻辑
-
-...
-
-✓ 接受   ⎇ 接受 + Stage   ↶ 拒绝   💬 请求修正
-────────────────────────────────────────────────
-块 2
-修改后的校验逻辑
+CodeBender: Iniciar sesión de revisión
 ```
 
-处理块 1 不会自动处理块 2。
+当前工作区状态会成为本次会话的基线。
+
+### 3. 让编程代理开始工作
+
+可以使用 Claude Code、Codex、Kimi、Gemini CLI、OpenCode、其他终端代理，或手动编辑。
+
+### 4. 只审查新的变更块
+
+在修改过的文件中：
+
+```text
+✓ 接受   ⎇ 接受 + Stage   ↶ 拒绝   💬 请求修正
+──────────────────────────────────────────────────────────────
+变更块
+```
+
+或者使用侧边栏的 **Review Changes** 视图，在不打开文件的情况下接受/拒绝某个文件的全部待审变更块。
+
+### 5. 持续处理，直到没有待审变更为止
+
+之后你可以继续工作、创建 Git 检查点、查看历史记录，或结束会话。
+
+---
+
+## 审查模型
+
+### 会话基线
+
+CodeBender 始终将新的工作与审查会话开始时捕获的状态进行比较。
+
+这个起点可能已经包含：
+
+- 已提交的代码；
+- 未暂存的修改；
+- 已暂存的修改；
+- 包含未保存内容的已打开编辑器缓冲区。
+
+这些预先存在的状态会被当作**基线**，而不是新的 AI 变更。
+
+### 变更块隔离
+
+如果一个文件包含多处独立修改：
+
+```text
+变更块 A   → 待审
+变更块 B   → 待审
+变更块 C   → 待审
+```
+
+那么：
+
+```text
+接受 A
+拒绝 B
+接受 + Stage C
+```
+
+会产生三个独立的决策。CodeBender 不会有意将它们合并成单一的文件级决策。
+
+### 已删除的文件
+
+一个被完全删除的文件没有编辑器缓冲区可以用来渲染 CodeLens 操作。因此 CodeBender 会把一次完整删除表示为 **Review Changes** 中的一个删除变更块，可以在那里接受、接受 + Stage 或拒绝。
+
+---
+
+## Review Changes 视图
+
+侧边栏视图旨在快速回答两个问题：
+
+1. **哪些文件仍有待审的变更块？**
+2. **我想逐块审查这个文件，还是一次性决定它剩下的所有变更块？**
+
+对于一个普通的已修改文件：
+
+```text
+src/services/user.ts       3 个变更块        ✓   ↶
+```
+
+- 点击文件 → 打开并逐块内联审查。
+- 点击 `✓` → 接受该文件的所有待审变更块。
+- 点击 `↶` → 拒绝该文件的所有待审变更块。
+
+批量操作只影响所选的文件。
+
+---
+
+## 内联编辑器体验
+
+CodeBender 使用 VS Code 的装饰、gutter 指示器和 CodeLens 控件，让审查决策始终贴近被修改的代码。
 
 ### Gutter 标记
 
-待审内联变更会在编辑器左侧 gutter 标记，因此无需打开传统的整文件 diff 就能看到仍需人工处理的位置。
+待审变更块会在 gutter 中显示指示器，方便在浏览源码时保持审查位置可见。
 
-### Explorer 徽标
-
-包含待审变更的文件可以在 VS Code Explorer 中显示徽标。
-
-关闭方式：
-
-```json
-{
-  "codeBender.explorer.badges": false
-}
-```
-
-### 变更导航
-
-默认快捷键：
+### 导航
 
 | 操作 | Windows / Linux | macOS |
 |---|---|---|
@@ -213,156 +289,170 @@ Git baseline
 | 上一个待审变更 | `Alt+Shift+Up` | `Alt+Shift+Up` |
 | 撤销上一次决策 | `Ctrl+Alt+Z` | `Cmd+Alt+Z` |
 
-### 撤销审查决策
+### Explorer 徽标
 
-**CodeBender: Undo Last Decision** 可以恢复前一个 CodeBender 审查状态。
+有待审工作的文件可以在 VS Code 普通 Explorer 中显示徽标。
 
-对于 `接受 + Stage`，CodeBender 还会记录足够的 Git index 状态，以便在可能时恢复原来的 index entry。
-
----
-
-## Git 集成与版本管理
-
-CodeBender 使用 Git 有两个不同目的：
-
-1. **审查 baseline / checkpoints** — 内部版本管理，不应移动当前分支或 `HEAD`。
-2. **接受 + Stage** — 显式操作，会有意更新真实 Git index 中已接受的状态。
-
-### 内部 checkpoints
-
-CodeBender checkpoint 可保存在类似以下内部引用下：
-
-```text
-refs/codebender/<session>/checkpoints/00001
-```
-
-创建 checkpoint 不需要切换分支。
-
-### 临时 Git index
-
-创建 checkpoint 使用临时 `GIT_INDEX_FILE`，因此不会为了捕获 CodeBender baseline 而替换用户正常的 staging 状态。
-
-```text
-你的正常 index
-      │
-      └── 创建 checkpoint 时保持不变
-
-CodeBender
-      │
-      └── 临时 index → tree → 内部 checkpoint
-```
-
-### 接受 + Stage 的安全保护
-
-`接受 + Stage` 会有意修改真实 Git index。
-
-执行前，CodeBender 会检查该文件现有 index 状态是否与预期的审查 baseline 一致。如果存在歧义，操作会被拒绝，而不是静默覆盖与 CodeBender 无关的既有 staged 工作。
-
-### Git Timeline
-
-Git 相关视图可以展示：
-
-- 当前分支；
-- staged / modified / untracked 数量；
-- 最近的普通 Git commits；
-- CodeBender 内部 checkpoints。
-
-### 推荐 Git 工作流
-
-```text
-开始审查会话
-        ↓
-代理修改代码
-        ↓
-逐块内联审查
-        ├── 接受
-        ├── 接受 + Stage
-        ├── 拒绝
-        └── 请求修正
-        ↓
-处理所有预期变更块
-        ↓
-运行 tests / build
-        ↓
-使用正常 Git 流程 commit
-        ↓
-需要时再 push
-```
-
-CodeBender 不需要自动执行 `push`。
-
----
-
-## 代理反馈循环
-
-CodeBender 可以把选中的审查块连同人工反馈重新发送给编程代理。
-
-生成的上下文可以包含：
-
-- workspace 和文件路径；
-- 修改行范围；
-- 原始代码块；
-- 当前代码块；
-- 审查者备注；
-- 可选的附近上下文或整个文件上下文。
-
-默认情况下，CodeBender 会把生成的 prompt 插入所选集成终端，**但不会自动按 Enter**。
-
-这样在代理真正收到指令之前，控制权仍在用户手中。
-
-### 内置代理适配器
-
-- Claude Code
-- Codex
-- Kimi Code
-- Gemini CLI
-- OpenCode
-- 当前集成终端
-
-### 自定义 CLI 适配器
-
-可通过 `settings.json` 添加：
+可以这样关闭：
 
 ```json
 {
-  "codeBender.agent.adapters": [
-    {
-      "id": "my-agent",
-      "label": "My Agent",
-      "command": "my-agent-cli",
-      "matchers": ["my agent", "my-agent"]
-    }
-  ]
+  "codeBender.explorer.badges": false
 }
 ```
 
-CodeBender 本身不需要 Anthropic、OpenAI、Moonshot、Google 或其他 AI 提供商的 API key。
+---
+
+## 接受 + Stage
+
+`接受 + Stage` 与 `git add <file>` 有意不同。
+
+它的设计目标是只把**被接受的那个变更块**加入暂存区。
+
+示例：
+
+```text
+src/auth.ts
+
+变更块 1 → 接受 + Stage
+变更块 2 → 待审
+变更块 3 → 待审
+```
+
+预期的 Git 状态：
+
+```text
+STAGED（已暂存）
+└── 变更块 1
+
+WORKING TREE（工作区）
+├── 变更块 2
+└── 变更块 3
+```
+
+### 索引安全
+
+CodeBender 读取当前的 Git 索引，将所选审查变更块应用到该索引内容之上，只有在操作没有歧义时才写回更新后的索引。
+
+这一设计有助于保留：
+
+- CodeBender 之前就已存在的暂存内容；
+- 其他不相关的暂存变更块；
+- 早于本次会话就存在的未暂存内容；
+- 同一文件中其他待审的 CodeBender 变更块。
 
 ---
 
-## 变更归属
+## Git-first 基线与版本管理
 
-CodeBender 支持 best-effort 方式标记审查块的来源，例如：
+CodeBender 将 Git 用于两个互相独立的目的。
 
-- **Manual**
-- 当前选择的编程代理
-- **Mixed**，当重叠修改与多个来源有关时
+### 1. 审查基线与检查点
 
-使用 **CodeBender: Select Change Source** 指定接下来由谁产生修改。
+内部审查状态可以用 Git 对象和内部 ref 来表示，而不移动你的分支。
 
-把反馈发送给某个代理后，也可以自动把该代理设为当前来源。
+概念上表示为：
 
-> VS Code 不提供可密码学验证的信号来精确证明哪个外部进程写入了每个字符。因此，该归属仅为 best-effort，不应被当作审计级作者身份凭证。
+```text
+refs/codebender/<会话>/checkpoints/<id>
+```
+
+### 2. 显式暂存
+
+只有 `接受 + Stage` 会有意更新真实的 Git 索引。
+
+### 干净的仓库
+
+只要有可能，CodeBender 会直接复用 `HEAD` 作为基线。
+
+### 有本地改动的仓库
+
+如果工作区已经包含未提交的修改，CodeBender 可以通过一个隔离的临时 `GIT_INDEX_FILE` 捕获精确的初始状态。
+
+```text
+真实 Git 索引             → 保持不变
+CodeBender 临时索引       → 基线树 / 检查点
+```
+
+这样可以避免创建基线时替换掉你的暂存区。
 
 ---
 
-## 暂停与恢复跟踪
+## 非 Git 工作区
 
-当你需要进行不应自动形成新审查块的手动修改时，可以暂停 CodeBender。
+推荐使用 Git，但并非必须。
 
-恢复跟踪时，暂停期间的修改可以根据配置的冲突策略并入 baseline。
+Git 之外的文件夹会使用快照回退引擎。CodeBender 会：
 
-可用策略：
+- 排除常见的依赖/构建目录；
+- 限制快照的大小和文件数量；
+- 在并发 worker 启动之前先创建好快照存储目录；
+- 避免此前出现过的 `globalStorage/.../snapshots/... ENOENT` 竞态问题；
+- 保留拒绝变更块所需的初始状态。
+
+默认排除的目录包括 `.git`、`node_modules`、`.next`、`dist`、`build`、`target`、`vendor`、虚拟环境目录以及覆盖率输出目录等。
+
+---
+
+## 请求修正
+
+当生成的变更块已经接近正确、但还不足以直接接受时，使用 **请求修正**。
+
+默认消息会让代理聚焦于所选的待审变更块：
+
+```text
+Reviewer correction request
+
+Instruction: <你的反馈>
+File: <相对工作区的路径>
+Pending block: <类型与当前行>
+
+Rules:
+- Correct only this pending CodeBender block.
+- Do not modify unrelated pending blocks.
+- Work on the real workspace file.
+```
+
+### 上下文模式
+
+```json
+{
+  "codeBender.agent.contextMode": "block+context",
+  "codeBender.agent.contextLines": 40
+}
+```
+
+可用模式：
+
+- `block` — 仅所选变更块。
+- `block+context` — 所选变更块加上附近的代码行。
+- `file` — 变更块加上完整文件内容，受片段长度限制约束。
+
+出于安全考虑，除非显式开启，CodeBender 不会自动按下回车键。
+
+---
+
+## 跟踪控制
+
+当你需要进行与本次审查无关的手动修改时，CodeBender 可以临时暂停跟踪。
+
+命令：
+
+```text
+CodeBender: Pausar seguimiento
+CodeBender: Reanudar seguimiento
+CodeBender: Pausar/Reanudar seguimiento
+```
+
+恢复跟踪后的冲突处理方式可以通过以下配置调整：
+
+```json
+{
+  "codeBender.pause.conflictStrategy": "ask"
+}
+```
+
+可选值：
 
 - `ask`
 - `keep-pending`
@@ -370,133 +460,9 @@ CodeBender 支持 best-effort 方式标记审查块的来源，例如：
 
 ---
 
-## 审查会话
+## 配置
 
-**Review Sessions** 视图保存轻量级会话摘要，例如：
-
-- 已接受决策；
-- 已拒绝决策；
-- staged 决策；
-- 已发送反馈；
-- undo 操作；
-- 会话结束时仍待处理的文件。
-
-活动会话会被持久化，因此 VS Code 重启后 CodeBender 可以恢复审查状态。
-
----
-
-## 安装
-
-### 安装打包好的 VSIX
-
-1. 下载 `codebender-0.7.2.vsix`。
-2. 打开 VS Code。
-3. 按 `Ctrl+Shift+P`。
-4. 运行 **Extensions: Install from VSIX...**。
-5. 选择 `codebender-0.7.2.vsix`。
-6. 如果 VS Code 提示，运行 **Developer: Reload Window**。
-
-使用 VS Code CLI：
-
-```bash
-code --install-extension codebender-0.7.2.vsix
-```
-
-### 从旧版本升级
-
-直接在现有扩展之上安装新 VSIX，然后重新加载 VS Code。
-
-在重要仓库中测试开发版本之前，仍建议先创建正常 Git commit 或独立备份。
-
-### 从源码运行
-
-```bash
-git clone <your-codebender-repository>
-cd codebender
-npm run check
-code .
-```
-
-然后按 `F5` 启动 Extension Development Host。
-
-0.7.2 源码包包含扩展源码、验证脚本以及自动化 Node 回归测试。运行 `npm test` 即可执行。
-
----
-
-## 快速开始
-
-1. 在 VS Code 中打开项目文件夹。
-2. 打开 Activity Bar 中的 **CodeBender** 视图。
-3. 点击 **Start Review Session**。
-4. 如果 Git 可用并且 `codeBender.git.fastBaseline` 已启用，CodeBender 会初始化 Git-first baseline。
-5. 让 Claude Code 或其他编程代理修改 workspace。
-6. 打开一个已修改源文件。
-7. 使用 **接受**、**接受 + Stage**、**拒绝** 或 **请求修正** 审查内联块。
-8. 从编辑器或 CodeBender 视图导航剩余变更。
-9. 所有预期变更处理完后结束审查会话。
-10. 适当时使用你的正常 Git 流程提交代码。
-
----
-
-## 与 Claude Code 搭配的推荐流程
-
-```text
-打开 Git 仓库
-        ↓
-开始 CodeBender 审查会话
-        ↓
-选择来源: Claude Code
-        ↓
-Claude 修改文件
-        ↓
-CodeBender 标记内联变更块
-        ↓
-┌───────────────────────────────┐
-│ ✓ 接受                        │
-│ ⎇ 接受 + Stage               │
-│ ↶ 拒绝                        │
-│ 💬 请求修正                   │
-└───────────────────────────────┘
-        ↓
-Claude 可继续修正被拒绝的块
-        ↓
-审查剩余块
-        ↓
-tests / build
-        ↓
-Git commit
-```
-
----
-
-## 设置
-
-| 设置 | 默认值 | 用途 |
-|---|---:|---|
-| `codeBender.excludeGlob` | 生成/依赖目录 | snapshot fallback 和会话扫描排除路径 |
-| `codeBender.maxFileSizeMB` | `10` | 备份/恢复可处理的最大文件大小 |
-| `codeBender.maxFiles` | `20000` | 单个会话最多考虑的文件数 |
-| `codeBender.confirmReject` | `true` | 对整文件或全部拒绝操作进行确认 |
-| `codeBender.inlineReview.enabled` | `true` | 启用内联逐块审查 |
-| `codeBender.inlineReview.showCodeLens` | `true` | 在 hunks 上方显示审查操作 |
-| `codeBender.inlineReview.maxLines` | `25000` | 内联 diff 行数上限 |
-| `codeBender.explorer.badges` | `true` | 显示 Explorer 待审徽标 |
-| `codeBender.git.enabled` | `true` | 启用 Git checkpoints 和 staging 集成 |
-| `codeBender.git.fastBaseline` | `true` | 可用时使用 Git-first 延迟 baseline |
-| `codeBender.git.checkpointOnDecision` | `false` | 每次审查决策后创建 Git checkpoint |
-| `codeBender.git.maxCheckpoints` | `100` | 单会话显示的最大 checkpoints 数 |
-| `codeBender.git.historyLimit` | `20` | 显示的最近 Git commits 数 |
-| `codeBender.pause.conflictStrategy` | `ask` | 处理暂停跟踪期间的修改 |
-| `codeBender.agent.default` | `ask` | 默认代理/适配器 |
-| `codeBender.agent.autoCreateTerminal` | `false` | 缺少代理终端时自动创建 |
-| `codeBender.agent.executePrompt` | `false` | 插入反馈后自动按 Enter |
-| `codeBender.agent.contextMode` | `block+context` | 反馈上下文：块、附近上下文或文件 |
-| `codeBender.agent.contextLines` | `40` | 附近上下文行数 |
-| `codeBender.agent.maxFragmentChars` | `12000` | 发送给代理的最大片段长度 |
-
-### 推荐性能配置
-
-对于普通 Git 仓库：
+推荐的初始配置：
 
 ```json
 {
@@ -504,122 +470,225 @@ Git commit
   "codeBender.git.fastBaseline": true,
   "codeBender.git.checkpointOnDecision": false,
   "codeBender.inlineReview.enabled": true,
-  "codeBender.inlineReview.showCodeLens": true
+  "codeBender.inlineReview.showCodeLens": true,
+  "codeBender.explorer.badges": true,
+  "codeBender.agent.default": "ask",
+  "codeBender.agent.autoCreateTerminal": false,
+  "codeBender.agent.executePrompt": false,
+  "codeBender.agent.contextMode": "block+context",
+  "codeBender.agent.contextLines": 40
 }
 ```
+
+### 重要配置项
+
+| 配置项 | 默认值 | 作用 |
+|---|---:|---|
+| `codeBender.git.enabled` | `true` | 启用 Git 检查点与暂存集成。 |
+| `codeBender.git.fastBaseline` | `true` | 使用惰性加载的、由 Git 支撑的会话基线。 |
+| `codeBender.git.checkpointOnDecision` | `false` | 避免在每次审查操作后都创建一个 Git 检查点。 |
+| `codeBender.inlineReview.enabled` | `true` | 启用内联逐块审查。 |
+| `codeBender.inlineReview.showCodeLens` | `true` | 在待审变更块上方显示操作。 |
+| `codeBender.explorer.badges` | `true` | 在 Explorer 中显示待审变更徽标。 |
+| `codeBender.confirmReject` | `true` | 对破坏性的文件级/全部变更拒绝进行确认。 |
+| `codeBender.agent.default` | `ask` | 选择目标编程代理。 |
+| `codeBender.agent.executePrompt` | `false` | 插入代理反馈后自动按下回车键。 |
+| `codeBender.agent.contextMode` | `block+context` | 随修正反馈一起发送的代码量。 |
+| `codeBender.maxFileSizeMB` | `10` | 回退快照能处理的最大文件大小。 |
+| `codeBender.maxFiles` | `20000` | 回退会话中包含的最大文件数量。 |
+
+完整的配置 schema 请参见 `package.json`。
+
+---
+
+## 命令
+
+命令面板中可用的主要命令：
+
+| 命令 | 作用 |
+|---|---|
+| `CodeBender: Iniciar sesión de revisión` | 将当前状态冻结为审查基线。 |
+| `CodeBender: Finalizar sesión` | 结束当前活动的审查会话。 |
+| `CodeBender: Actualizar cambios` | 刷新待审变更。 |
+| `CodeBender: Pausar seguimiento` | 临时停止跟踪新的编辑。 |
+| `CodeBender: Reanudar seguimiento` | 恢复跟踪。 |
+| `CodeBender: Siguiente cambio` | 跳转到下一个待审变更块。 |
+| `CodeBender: Cambio anterior` | 跳转到上一个待审变更块。 |
+| `CodeBender: Deshacer última decisión` | 撤销最近一次 CodeBender 决策。 |
+| `CodeBender: Ver resumen de sesión` | 显示审查会话统计信息。 |
+| `CodeBender: Crear checkpoint Git` | 创建一个显式的内部 Git 检查点。 |
+| `CodeBender: Ver historial Git` | 查看可用的 Git 历史记录/检查点。 |
+
+内联和树视图中的操作提供了具体到变更块/文件级别的命令。
 
 ---
 
 ## 性能模型
 
-### Git 仓库
+### 旧的全量快照方案
 
-0.7.0 推荐路径：
-
-```text
-开始会话
-   ↓
-检测 Git
-   ↓
-解析 baseline
-   ↓
-监听相关变更
-   ↓
-按实际变化文件延迟加载 baseline 内容
-```
-
-这样可以避免旧流程中预先读取、哈希并物理复制整个 Git 仓库。
-
-### 非 Git 目录
-
-fallback 路径：
+在一个较大的仓库中，可能需要：
 
 ```text
-开始会话
-   ↓
-安全创建 snapshot 存储目录
-   ↓
-扫描允许的文件
-   ↓
-保存 baseline snapshots
-   ↓
-监听变更
+查找文件
+  + stat 文件
+  + 读取文件
+  + 计算文件哈希
+  + 写入快照副本
+  + 创建 Git 检查点
 ```
 
-非 Git 项目中，为获得最佳性能，应继续排除依赖目录和构建产物。
+### 当前的 Git-first 方案
+
+对于一个干净的 Git 仓库：
+
+```text
+git status
+   ↓
+HEAD 基线
+   ↓
+就绪
+```
+
+如果在一个包含 10,000 个文件的仓库中只有四个文件发生了变化，CodeBender 可以只把审查工作聚焦在这四个文件上，而不是先复制整个工作区。
 
 ---
 
-## 隐私与安全
+## 换行符与编码
 
-CodeBender 采用 local-first 设计：
+CodeBender 对比较逻辑做了归一化处理，使得普通的 `LF` 与 `CRLF` 差异不会产生“整个文件已更改”的虚假审查变更块。
 
-- 不需要 CodeBender 后端；
-- 扩展本身不实现 CodeBender 遥测服务；
-- CodeBender 本身不需要 AI API key；
-- Git-first baseline 通过本地 Git 对象和内部 refs 保存；
-- 非 Git 或未覆盖目录使用文件 snapshots 作为 fallback；
-- 代理反馈仅发送到所选集成终端或已配置 CLI 适配器；
-- checkpoint 使用临时 Git index，而不是替换用户正常 index。
+审查引擎同样不会把 UTF-8 BOM 的差异当作代码变更。
 
-编程代理本身可能具有自己的网络、遥测、数据保留和隐私策略。CodeBender 不会改变 Claude Code、Codex、Kimi Code、Gemini CLI、OpenCode 或自定义工具自身的隐私保证。
+因此，打开一个 CRLF 文件、而其 Git 基线为 LF 时，在真正发生内容变更之前应当产生**零个**审查变更块。
 
 ---
 
-## 安全模型
+## 安全原则
 
-### 正常审查无需破坏性 Git 命令
+CodeBender 在破坏性操作上刻意保持保守。
 
-正常逐块审查不依赖以下广泛破坏性操作：
+### 它不需要
 
-```text
-git reset --hard
-git clean -fd
-git checkout .
-```
+- 通过 `git reset --hard` 来启动一个会话；
+- 通过 `git clean` 来管理审查状态；
+- 为内部检查点切换分支；
+- 仅仅为了创建基线就替换你真实的 Git 索引；
+- 在你选择某个内联变更块操作时接受整个文件。
 
-### 已有 staged 工作
+### 在一次破坏性批量拒绝之前
 
-checkpoint 使用隔离 index。`接受 + Stage` 不同：它会显式操作真实 Git index，因此 CodeBender 会在 staging 前检查 baseline 兼容性。
-
-### 仍建议独立备份
-
-CodeBender 仍处于早期阶段。Git 应继续作为主要版本控制系统；测试开发版本前，重要工作应正常 commit 或独立备份。
-
----
-
-## 故障排除
-
-### 会话启动曾出现 `ENOENT ... /snapshots/*.bin`
-
-0.7.0 的 snapshot fallback 会在并发 snapshot 工作开始前初始化存储目录。对于 Git 仓库，快速 baseline 也会在正常路径中避免创建完整项目 snapshot。
-
-升级后：
-
-1. 安装 `codebender-0.7.2.vsix`。
-2. 运行 **Developer: Reload Window**。
-3. 打开 Git 管理的项目。
-4. 开始新的审查会话。
-5. 保持 `codeBender.git.fastBaseline` 开启。
-
-### 启动仍然很慢
-
-确认当前 workspace 确实位于 Git 仓库内。
-
-Git 仓库推荐：
+文件级拒绝可以配置为需要确认：
 
 ```json
 {
-  "codeBender.git.enabled": true,
-  "codeBender.git.fastBaseline": true
+  "codeBender.confirmReject": true
 }
 ```
 
-非 Git 目录请检查 `codeBender.excludeGlob`，避免 snapshot 依赖与构建目录。
+### 代理提示
 
-### 不显示内联控制
+CodeBender 会把修正提示插入到本地终端中。自动执行默认是关闭的：
 
-确认：
+```json
+{
+  "codeBender.agent.executePrompt": false
+}
+```
+
+这让你有机会在发送之前先检查这条消息。
+
+---
+
+## 架构
+
+```text
+┌───────────────────────────────────────────────────────┐
+│                       VS Code                         │
+│                                                       │
+│  Workspace ── 文件监听 ── 审查状态门控                 │
+│      │                               │                │
+│      │                               ▼                │
+│      │                          变更块引擎              │
+│      │                               │                │
+│      │                  ┌────────────┴────────────┐   │
+│      │                  │                         │   │
+│      ▼                  ▼                         ▼   │
+│  Git 基线          内联审查                    树视图  │
+│  / 快照            + CodeLens                批量操作 │
+│      │                  │                         │   │
+│      └──────────────┬───┴──────────────┬─────────┘   │
+│                     │                  │             │
+│               Git 暂存           代理反馈             │
+│                     │                  │             │
+│                     ▼                  ▼             │
+│                 Git 索引          本地终端            │
+└───────────────────────────────────────────────────────┘
+```
+
+核心模块：
+
+| 模块 | 职责 |
+|---|---|
+| `extension.js` | VS Code 生命周期、命令、视图、装饰、会话编排。 |
+| `hunks.js` | 变更块检测与变更块级别的操作。 |
+| `review-state.js` | “仅新变更”审查门控与会话审查状态。 |
+| `git-versioning.js` | Git-first 基线、检查点、历史记录。 |
+| `git-staging.js` | 已接受变更块的安全部分暂存。 |
+| `agent-send.js` | 代理选择、修正提示构建、终端传输。 |
+| `tracking-pause.js` | 暂停/恢复行为与冲突处理。 |
+
+更多细节请参见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
+
+---
+
+## 测试
+
+在源码目录下：
+
+```bash
+npm test
+npm run check
+```
+
+回归测试套件覆盖了关键的审查路径，包括：
+
+- 同一文件内彼此独立的变更块；
+- 变更块级别的接受与拒绝；
+- 部分 `接受 + Stage`；
+- 保留预先存在的暂存/未暂存内容；
+- 插入与删除；
+- LF/CRLF 处理；
+- BOM 处理；
+- “仅新变更”审查门控；
+- 代理提示传输；
+- 文件级批量接受/拒绝操作。
+
+---
+
+## 故障排查
+
+### 打开文件后显示有变更，但我并没有编辑它
+
+请确认你使用的构建版本包含“仅新变更”门控和 EOL 归一化。当前版本会确保仅仅打开或激活一个文件不会产生审查操作。
+
+如果问题仍然存在，请检查特定仓库的转换行为，例如 `.gitattributes`、打开/保存时自动格式化的扩展、生成的文件，或非标准编码。
+
+### `接受 + Stage` 失败
+
+如果所选变更块无法安全应用到当前 Git 索引，CodeBender 会有意中止操作。请检查同样的代码行上是否已经存在暂存的或早于本次会话的修改。
+
+### `请求修正` 被拆分成多条终端消息
+
+0.7.4 及之后的版本对多行提示使用 bracketed paste 传输方式。请确认你使用的是当前构建版本，并且目标终端支持标准的 bracketed paste 行为。
+
+### 快照启动错误：`ENOENT ... globalStorage/.../snapshots`
+
+当前版本会在并发回退 worker 启动之前先创建好快照目录。从旧版本更新后，请重新加载 VS Code。
+
+### 没有出现内联控件
+
+请检查：
 
 ```json
 {
@@ -628,117 +697,55 @@ Git 仓库推荐：
 }
 ```
 
-保存已修改文件，如有需要运行 **CodeBender: Refresh Changes**。
-
-### 删除文件没有内联按钮
-
-已删除文件不存在当前编辑器文档，因此无法显示内联装饰。仍可从 CodeBender 侧边视图处理这些文件。
-
-### `接受 + Stage` 被拒绝
-
-当现有 Git index 与审查 baseline 不一致时，这是预期行为。安全检查用于避免覆盖不明确的既有 staged 工作。
-
----
-
-## 已知限制
-
-- GitHub Copilot 内部使用的私有内联 UI 并不是 VS Code 对第三方扩展公开的可复用组件。CodeBender 使用 CodeLens、编辑器装饰、gutter 图标、Tree Views、文件装饰、终端和 Git 等公开 API 复现相同审查思路。
-- 变更归属是 best-effort，不具备密码学可靠性。
-- 二进制文件或超过配置限制的文件可能只能按文件级处理，而不能按行/hunk 处理。
-- 删除文件由于文档已不存在，无法显示内联控制。
-- `接受 + Stage` 会有意拒绝不明确的 index 状态。
-- multi-root workspace 可以同时使用 Git-backed 与 snapshot-backed 根目录。
-
----
-
-## 架构
-
-```text
-VS Code Extension Host
-│
-├── 会话 / baseline 引擎
-│   ├── Git-first 延迟 baseline
-│   ├── 非 Git snapshot fallback
-│   ├── baseline 内容缓存
-│   ├── hunk 引擎
-│   └── 暂停 / 恢复
-│
-├── 内联审查 UX
-│   ├── CodeLens 操作
-│   ├── gutter 标记
-│   ├── 行装饰
-│   ├── Explorer 徽标
-│   ├── Review Changes
-│   └── Review Sessions
-│
-├── Git 集成
-│   ├── 临时 index checkpoints
-│   ├── 内部 refs
-│   ├── Git Timeline
-│   ├── 安全部分 staging
-│   └── 决策回滚
-│
-└── 代理适配器
-    ├── Claude Code
-    ├── Codex
-    ├── Kimi Code
-    ├── Gemini CLI
-    ├── OpenCode
-    ├── 当前终端
-    └── 自定义 CLI
-```
-
-CodeBender 运行时没有 npm dependencies。
-
----
-
-## 开发
-
-使用以下命令验证 JavaScript 语法：
-
-```bash
-npm run check
-```
-
-当前 0.7.2 源码包包含针对 hunk 独立性和 Git 部分暂存的自动化 Node 回归测试。运行 `npm test` 即可执行。
-
-推荐开发流程：
-
-```bash
-npm run check
-code .
-```
-
-然后按 `F5` 启动 Extension Development Host，并在一次性 Git 测试仓库中测试审查流程。
+同时确认存在一个活动的审查会话，并且该编辑发生在会话开始之后。
 
 ---
 
 ## 项目状态
 
-CodeBender 是一个早期 open-source 项目。0.7.2 面向主动测试和持续迭代。在评估开发版本时，请继续使用普通 Git commits 或其他独立备份保护重要工作。
+CodeBender 正在积极开发中。当前的设计重点是先确保本地审查语义的可靠性，然后再扩展更广泛的自动化能力。
 
-## Roadmap
+### 当前优先事项
 
-- 更丰富的内联反馈线程；
-- 在 VS Code 公开 API 能力范围内进一步接近 Copilot 的交互；
-- 在支持的场景下改进代理 turn 自动检测；
-- 更快的非 Git snapshot fallback；
-- 更稳健的 multi-root 会话 UX；
-- 将 tests/build 验证绑定到已接受变更块；
-- 根据已接受审查历史生成 commit message；
-- 会话级接受/拒绝变更报告；
-- 可选 MCP 适配层；
-- 更语言感知的上下文提取；
-- Marketplace 打包和 release 自动化。
+- 当代理在同一区域反复修改时，让变更块身份识别更具韧性；
+- 提升与原生 AI 编辑审查体验之间的视觉一致性；
+- 加强多根（multi-root）工作区下的行为；
+- 改进代理归因和会话统计信息；
+- 增加更丰富的 Git 检查点/历史记录界面；
+- 在真实的 VS Code Extension Host 中扩展自动化集成测试的覆盖范围。
 
-## 贡献
+---
 
-欢迎 Issues 和 Pull Requests。参见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+## 参与贡献
+
+欢迎贡献代码、提交 bug 报告、可复现的边界情况以及设计提案。
+
+在提交 pull request 之前，请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+有价值的报告通常包含：
+
+- VS Code 版本；
+- 操作系统；
+- Git 版本；
+- 会话开始时仓库是干净还是有未提交改动；
+- 换行符配置（`.gitattributes`、`core.autocrlf`）；
+- 使用的具体 CodeBender 操作；
+- 最小化的复现步骤。
+
+---
+
+## 安全
+
+请不要在公开 issue 中发布敏感的漏洞细节。项目的安全流程请参见 [`SECURITY.md`](SECURITY.md)。
+
+---
 
 ## 许可证
 
-MIT。参见 [`LICENSE`](LICENSE)。
+CodeBender 基于 [MIT 许可证](LICENSE) 发布。
 
-## 商标 / 关联声明
+---
 
-CodeBender 是独立的 open-source 项目，与 GitHub、Microsoft、Anthropic、OpenAI、Moonshot AI、Google 或 OpenCode 无隶属关系，也未获得这些公司的官方背书。
+<p align="center">
+  <strong>保持 AI 编程代理的速度，同时把最终决定权留给人。</strong>
+</p>

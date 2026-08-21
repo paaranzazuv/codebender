@@ -1,211 +1,287 @@
-[English](README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md)
+<p align="center">
+  <img src="media/icon.png" alt="CodeBender" width="112" />
+</p>
 
-> **0.7.5 behavior:** the **Review Changes** tree now offers `✓ Accept all changes in file` and `↶ Reject all changes in file` as optional file-level bulk shortcuts. Inline review remains strictly hunk-scoped.
+<h1 align="center">CodeBender</h1>
 
-> **0.7.4 behavior:** keeps the 0.7.3 new-change-only review gate and fixes **Request correction** so the selected block feedback reaches the coding agent as one terminal message.
+<p align="center">
+  <strong>Human-in-the-loop code review for AI coding agents, directly inside VS Code.</strong>
+</p>
 
+<p align="center">
+  Review AI-generated edits as independent inline blocks. Accept, reject, stage, or send a specific block back to the agent without losing control of the rest of the file.
+</p>
 
-> **0.7.2 fix:** opening a file does not create phantom whole-file changes when Git and the working tree use different line endings. Review decisions remain hunk-scoped.
+<p align="center">
+  <a href="README.md"><strong>English</strong></a> ·
+  <a href="README.es.md">Español</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-# CodeBender
+<p align="center">
+  <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%5E1.85.0-007ACC?logo=visualstudiocode&logoColor=white" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.7.6-4C8BF5" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-green" />
+  <img alt="Git-first" src="https://img.shields.io/badge/baseline-Git--first-F05032?logo=git&logoColor=white" />
+  <img alt="Provider neutral" src="https://img.shields.io/badge/agents-provider--neutral-7B61FF" />
+</p>
 
-**Human-in-the-loop code review for AI coding agents — directly inside VS Code.**
+---
 
-CodeBender turns edits made by AI coding agents into reviewable inline change blocks inside the original source file. You can accept or reject each block independently, optionally stage accepted code, send a block back to an agent with feedback, navigate pending changes, and keep lightweight Git-backed review history.
+## Why CodeBender
 
-> CodeBender is provider-neutral. It can work with Claude Code, Codex, Kimi Code, Gemini CLI, OpenCode, the active VS Code terminal, or a custom CLI adapter.
+AI coding agents can change a codebase faster than a human can comfortably review it. The problem is not generating code — it is keeping **precise human control over what actually stays**.
 
-## What CodeBender is for
-
-AI coding agents can modify many files very quickly. CodeBender adds a human approval layer between those edits and the final state of your codebase.
+CodeBender adds a review layer between an AI agent and your workspace:
 
 ```text
 AI coding agent
       ↓
-changes workspace files
+modifies workspace files
       ↓
-CodeBender detects changed blocks
+CodeBender detects only new session changes
       ↓
-┌────────────────────────────────────────────┐
-│  AI: Claude Code · block 2/5              │
-│                                            │
-│  ✓ Accept     ⎇ Accept + Stage            │
-│  ↶ Reject     💬 Request correction        │
-│                                            │
-│  changed code                              │
-└────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Block 1                                      │
+│ ✓ Accept   ⎇ Accept + Stage   ↶ Reject      │
+│ 💬 Request correction                        │
+└──────────────────────────────────────────────┘
       ↓
-human decision
+┌──────────────────────────────────────────────┐
+│ Block 2                                      │
+│ ✓ Accept   ⎇ Accept + Stage   ↶ Reject      │
+│ 💬 Request correction                        │
+└──────────────────────────────────────────────┘
       ↓
-Git / agent feedback loop
+human-controlled result
 ```
 
-The goal is similar to the block-by-block review experience used by AI coding assistants, while staying provider-neutral and using public VS Code extension APIs.
+A file with three independent edits remains **three independent review decisions**.
+
+CodeBender is designed to feel close to the block-review workflow popularized by AI coding assistants while remaining **provider-neutral** and built on public VS Code extension APIs.
 
 ---
 
-## What's new in CodeBender 0.7.2
+## Highlights
 
-Version 0.7.2 keeps the fast Git-first startup from 0.7.0 and restores the review model to **strict block-level decisions**.
+### Review changes block by block
 
-### Block-level review with optional file bulk shortcuts
+Each new hunk can be reviewed directly in the original source file:
 
-Inline review remains strictly hunk-scoped. Open a file and decide directly on each hunk:
+- **Accept** — keep only the selected block.
+- **Accept + Stage** — accept and stage only that block.
+- **Reject** — restore only that block to the session baseline.
+- **Request correction** — send only that block, its context, and your instruction back to the selected coding agent.
 
-- **Accept** — accepts only the selected block.
-- **Accept + Stage** — accepts and stages only the selected block.
-- **Reject** — restores only the selected block.
-- **Request correction** — sends only that block back to the configured agent.
+Accepting one block does not automatically accept the rest of the file.
 
-From the **Review Changes** tree, CodeBender also offers two explicit bulk shortcuts for normal files: **Accept all changes in file** and **Reject all changes in file**. These shortcuts decide every pending block in that file without opening it; they do not change the per-block behavior of the inline controls.
+### Bulk actions without opening the file
 
-A fully deleted file is treated as one deletion block because there is no source document left in which to render CodeLens controls; the tree exposes block actions for that special case.
+The **Review Changes** view also exposes optional file-level shortcuts:
 
-### Fixed Accept + Stage
+```text
+src/auth.ts                         ✓   ↶
+src/api/users.ts                    ✓   ↶
+src/components/Login.tsx            ✓   ↶
+```
 
-The 0.7.0 fast baseline could differ from the real Git index when work already existed before the review session. The old safety check rejected those cases too aggressively.
+- `✓` **Accept all changes in file**
+- `↶` **Reject all changes in file**
 
-0.7.2 now applies the selected review hunk onto the **current Git index content**, instead of replacing the staged file with the full review baseline. This preserves unrelated staged changes and does not stage pre-existing unstaged work. If the selected block overlaps an incompatible staged/pre-session change, CodeBender aborts before writing the index.
+These are explicit bulk actions. Inline review remains hunk-scoped.
 
-### Automated regression tests
+### Git-first startup
 
-The source archive now includes Node tests covering independent hunks, Accept + Stage, pre-existing staged and unstaged changes, insertions, deletions, and safe conflict handling.
-
----
-
-## What's new in CodeBender 0.7.0
-
-Version 0.7.0 focuses on **startup performance, Git-first versioning, and snapshot reliability**.
-
-### Git-first lazy baseline
-
-In a Git workspace, CodeBender no longer copies the entire project into VS Code global storage when a review session starts.
-
-#### Clean repository
-
-CodeBender can reuse the current `HEAD` as the review baseline.
+For Git repositories, CodeBender avoids copying the whole project before a session begins.
 
 ```text
 Start Review Session
         ↓
 Git repository detected
         ↓
-working tree is clean
+clean tree? ── yes ──→ reuse HEAD as baseline
+        │
+        no
         ↓
-HEAD becomes baseline
+capture exact starting state with isolated Git index
         ↓
 ready
 ```
 
-No full-project backup is required.
+Original content is loaded lazily only for files that become relevant to the review.
 
-#### Repository with pre-existing local changes
+### New-change-only review
 
-If you already have uncommitted work, CodeBender preserves the exact starting state using an **isolated temporary Git index** and an internal checkpoint.
+The session baseline is frozen when you press **Start Review Session**.
 
-```text
-HEAD
- +
-pre-existing working-tree changes
-        ↓
-temporary Git index
-        ↓
-CodeBender baseline checkpoint
-```
+Opening, activating, switching to, or merely viewing a file does **not** create review actions. CodeBender only decorates changes that appear after the session starts.
 
-The real Git staging area is not used to create that checkpoint.
+### Safe partial staging
 
-#### Lazy content loading
+`Accept + Stage` operates on the selected hunk rather than staging the complete file. Existing staged work is preserved when the selected block can be applied safely.
 
-Original file content is loaded only when that file actually becomes relevant to a review decision.
+If CodeBender detects an unsafe overlap, it stops before mutating the Git index.
 
-For example, if a repository contains 10,000 files and the coding agent modifies 4 files, CodeBender does not need to read and copy all 10,000 source files first.
+### Send a block back to the agent
 
-```text
-10,000-file Git repository
-        ↓
-Git baseline
-        ↓
-agent modifies auth.ts
-        ↓
-load baseline for auth.ts only
-        ↓
-calculate review blocks
-```
+`Request correction` sends one structured message containing:
 
-### Faster refresh
+- your instruction first;
+- the selected file and block;
+- the changed code;
+- minimal surrounding context;
+- explicit rules not to rewrite unrelated pending blocks.
 
-For Git-backed roots, CodeBender asks Git for changed paths instead of blindly rescanning and hashing the entire workspace whenever possible.
-
-### Reliable snapshot fallback
-
-Folders not covered by Git still use the file-snapshot engine. In 0.7.0:
-
-- snapshot storage directories are created before concurrent workers start;
-- snapshot and undo directories are initialized once rather than repeatedly per file;
-- common generated/dependency folders remain excluded by default;
-- the previous `ENOENT ... globalStorage/.../snapshots/...` startup race is avoided.
-
-### Less automatic Git work
-
-`codeBender.git.checkpointOnDecision` now defaults to `false`.
-
-Accepting or rejecting every individual block therefore does not automatically create another Git checkpoint unless you explicitly enable that behavior.
+Multiline prompts are sent as a single terminal input using bracketed paste semantics.
 
 ---
 
-## Core features
+## Supported coding agents
 
-### Inline block review
+CodeBender is provider-neutral. Built-in terminal adapters support:
 
-Independent changes in the same source file stay independent review decisions.
+| Agent | Default command |
+|---|---|
+| Claude Code | `claude` |
+| OpenAI Codex | `codex` |
+| Kimi Code | `kimi` |
+| Gemini CLI | `gemini` |
+| OpenCode | `opencode` |
+| Active terminal | Existing VS Code terminal |
+| Custom CLI | Configurable adapter |
 
-Each pending hunk can expose CodeLens actions directly above the changed code and a marker in the editor gutter.
+CodeBender does not require an API key for these integrations. It talks to the agent through the local terminal workflow you already use.
 
-- **Accept** — keep only that block as part of the review baseline.
-- **Accept + Stage** — accept the block and safely stage the resulting accepted state when the Git safety checks pass.
-- **Reject** — restore only that block to its baseline state.
-- **Request correction** — build feedback for the block and send it to a selected coding-agent terminal.
+---
 
-Example:
+## Installation
+
+### Install from VSIX
+
+1. Download `codebender-0.7.6.vsix`.
+2. Open VS Code.
+3. Press `Ctrl+Shift+P` / `Cmd+Shift+P`.
+4. Run **Extensions: Install from VSIX...**.
+5. Select the downloaded file.
+6. Run **Developer: Reload Window** if VS Code does not reload automatically.
+
+### Requirements
+
+- VS Code `1.85.0` or newer.
+- Git is strongly recommended for the fast baseline, history, checkpoints, and partial staging features.
+- A supported local coding-agent CLI is optional and only required for **Request correction**.
+
+---
+
+## Quick start
+
+### 1. Open a project
+
+Open the project folder — not only an individual file.
+
+### 2. Start a review session
+
+Run:
 
 ```text
-file: src/auth.ts
-
-✓ Accept   ⎇ Accept + Stage   ↶ Reject   💬 Request correction
-──────────────────────────────────────────────────────────────
-Block 1
-changed authentication logic
-
-...
-
-✓ Accept   ⎇ Accept + Stage   ↶ Reject   💬 Request correction
-──────────────────────────────────────────────────────────────
-Block 2
-changed validation logic
+CodeBender: Iniciar sesión de revisión
 ```
 
-Accepting or rejecting Block 1 does not automatically decide Block 2.
+The current workspace state becomes the session baseline.
 
-### Gutter indicators
+### 3. Let your coding agent work
 
-Pending inline changes are marked in the editor gutter so you can see where review decisions remain without opening a traditional full-file diff view.
+Use Claude Code, Codex, Kimi, Gemini CLI, OpenCode, another terminal agent, or edit manually.
 
-### Explorer badges
+### 4. Review only the new blocks
 
-Files with pending review changes can receive a badge in the VS Code Explorer.
+Inside the changed file:
 
-Disable them with:
-
-```json
-{
-  "codeBender.explorer.badges": false
-}
+```text
+✓ Accept   ⎇ Accept + Stage   ↶ Reject   💬 Request correction
+──────────────────────────────────────────────────────────────
+changed block
 ```
 
-### Change navigation
+Or use the **Review Changes** side view to accept/reject all pending blocks of one file without opening it.
 
-Default shortcuts:
+### 5. Continue until no pending changes remain
+
+You can then continue working, create a Git checkpoint, inspect history, or finish the session.
+
+---
+
+## Review model
+
+### The session baseline
+
+CodeBender always compares new work against the state captured when the review session started.
+
+That starting point may already contain:
+
+- committed code;
+- unstaged edits;
+- staged edits;
+- open editor buffers with unsaved content.
+
+Those pre-existing states are treated as **baseline**, not as new AI changes.
+
+### Hunk isolation
+
+If a file contains separate edits:
+
+```text
+Block A   → pending
+Block B   → pending
+Block C   → pending
+```
+
+then:
+
+```text
+Accept A
+Reject B
+Accept + Stage C
+```
+
+produces three independent decisions. CodeBender does not intentionally collapse them into a single file-level decision.
+
+### Deleted files
+
+A fully deleted file has no editor buffer in which to render CodeLens actions. CodeBender therefore represents a complete deletion as one deletion block in **Review Changes**, where it can be accepted, accepted + staged, or rejected.
+
+---
+
+## Review Changes view
+
+The side view is intended to answer two questions quickly:
+
+1. **Which files still contain pending review blocks?**
+2. **Do I want to review this file block-by-block or decide all its remaining blocks at once?**
+
+For a normal changed file:
+
+```text
+src/services/user.ts       3 blocks        ✓   ↶
+```
+
+- Click the file → open it and review blocks inline.
+- Click `✓` → accept all pending blocks in that file.
+- Click `↶` → reject all pending blocks in that file.
+
+Bulk actions affect only the selected file.
+
+---
+
+## Inline editor experience
+
+CodeBender uses VS Code decorations, gutter indicators, and CodeLens controls to keep review decisions near the changed code.
+
+### Gutter markers
+
+Pending blocks receive a gutter indicator so review locations remain visible while navigating the source.
+
+### Navigation
 
 | Action | Windows / Linux | macOS |
 |---|---|---|
@@ -213,158 +289,170 @@ Default shortcuts:
 | Previous pending change | `Alt+Shift+Up` | `Alt+Shift+Up` |
 | Undo last decision | `Ctrl+Alt+Z` | `Cmd+Alt+Z` |
 
-### Undo review decisions
+### Explorer badges
 
-**CodeBender: Undo Last Decision** restores the previous CodeBender review state.
+Files with pending review work can display a badge in the normal VS Code Explorer.
 
-For an `Accept + Stage` decision, CodeBender also records enough Git-index state to restore the previous index entry when possible.
+Disable it with:
+
+```json
+{
+  "codeBender.explorer.badges": false
+}
+```
 
 ---
 
-## Git integration and versioning
+## Accept + Stage
 
-CodeBender uses Git for two different purposes:
+`Accept + Stage` is intentionally different from `git add <file>`.
 
-1. **Review baseline / checkpoints** — internal versioning that should not move your current branch or `HEAD`.
-2. **Accept + Stage** — an explicit action that intentionally updates the real Git index for the accepted state.
+It is designed to stage **only the accepted review block**.
 
-### Internal checkpoints
-
-CodeBender checkpoints can live under internal refs such as:
+Example:
 
 ```text
-refs/codebender/<session>/checkpoints/00001
+src/auth.ts
+
+Block 1 → Accept + Stage
+Block 2 → pending
+Block 3 → pending
 ```
 
-Creating a CodeBender checkpoint does not require switching branches.
+Expected Git state:
 
-### Temporary Git index
+```text
+STAGED
+└── Block 1
 
-Checkpoint creation uses a temporary `GIT_INDEX_FILE` so normal staged work is not replaced just to capture a CodeBender baseline.
+WORKING TREE
+├── Block 2
+└── Block 3
+```
+
+### Index safety
+
+CodeBender reads the current Git index, applies the selected review hunk to that indexed content, and writes the updated index only when the operation is unambiguous.
+
+This design helps preserve:
+
+- staged work that existed before CodeBender;
+- unrelated staged blocks;
+- unstaged work that predates the session;
+- pending CodeBender blocks in the same file.
+
+---
+
+## Git-first baseline and versioning
+
+CodeBender uses Git for two separate purposes.
+
+### 1. Review baseline and checkpoints
+
+Internal review state can be represented by Git objects and internal refs without moving your branch.
 
 Conceptually:
 
 ```text
-Your normal index
-      │
-      └── untouched by checkpoint creation
-
-CodeBender
-      │
-      └── temporary index → tree → internal checkpoint
+refs/codebender/<session>/checkpoints/<id>
 ```
 
-### Accept + Stage safety
+### 2. Explicit staging
 
-`Accept + Stage` intentionally modifies Git's real index for the selected accepted state.
+Only `Accept + Stage` intentionally updates the real Git index.
 
-Before doing so, CodeBender checks whether the existing index for that file still matches the review baseline it expects. If the state is ambiguous, the operation is refused rather than silently overwriting unrelated staged work.
+### Clean repository
 
-### Git Timeline
+When possible, CodeBender reuses `HEAD` directly as the baseline.
 
-The Git-related view can expose:
+### Repository with local work
 
-- current branch;
-- staged / modified / untracked counts;
-- recent normal Git commits;
-- CodeBender internal checkpoints.
-
-### Recommended Git workflow
+If the workspace already contains uncommitted changes, CodeBender can capture the exact starting state through an isolated temporary `GIT_INDEX_FILE`.
 
 ```text
-Start Review Session
-        ↓
-agent edits code
-        ↓
-review inline blocks
-        ├── Accept
-        ├── Accept + Stage
-        ├── Reject
-        └── Request correction
-        ↓
-all intended blocks reviewed
-        ↓
-run tests / build
-        ↓
-commit using your normal Git workflow
-        ↓
-push only when you choose
+real Git index        → preserved
+CodeBender temp index → baseline tree/checkpoint
 ```
 
-CodeBender does not need to automatically `push` your code.
+This prevents baseline creation from replacing your staging area.
 
 ---
 
-## Agent feedback loop
+## Non-Git workspaces
 
-CodeBender can send a selected review block back to a coding agent with reviewer feedback.
+Git is recommended but not required.
 
-The generated context can include:
+Folders outside Git use the snapshot fallback engine. CodeBender:
 
-- workspace and file path;
-- changed line range;
-- original block;
-- current block;
-- reviewer annotation;
-- optional nearby context or full-file context.
+- excludes common dependency/build folders;
+- limits snapshot size and file count;
+- creates snapshot storage before concurrent workers start;
+- avoids the previous `globalStorage/.../snapshots/... ENOENT` race;
+- preserves the starting state needed for block rejection.
 
-By default, CodeBender inserts the generated prompt into the selected integrated terminal **without automatically pressing Enter**.
+Default exclusions include folders such as `.git`, `node_modules`, `.next`, `dist`, `build`, `target`, `vendor`, virtual environments, and coverage output.
 
-This keeps the user in control before the agent receives the instruction.
+---
 
-### Built-in agent adapters
+## Request correction
 
-- Claude Code
-- Codex
-- Kimi Code
-- Gemini CLI
-- OpenCode
-- Active integrated terminal
+Use **Request correction** when a generated block is close, but not correct enough to accept.
 
-### Custom CLI adapter
+The default message focuses the agent on the selected pending block:
 
-Add custom agents through `settings.json`:
+```text
+Reviewer correction request
+
+Instruction: <your feedback>
+File: <workspace-relative path>
+Pending block: <type and current lines>
+
+Rules:
+- Correct only this pending CodeBender block.
+- Do not modify unrelated pending blocks.
+- Work on the real workspace file.
+```
+
+### Context modes
 
 ```json
 {
-  "codeBender.agent.adapters": [
-    {
-      "id": "my-agent",
-      "label": "My Agent",
-      "command": "my-agent-cli",
-      "matchers": ["my agent", "my-agent"]
-    }
-  ]
+  "codeBender.agent.contextMode": "block+context",
+  "codeBender.agent.contextLines": 40
 }
 ```
 
-CodeBender itself does not require an Anthropic, OpenAI, Moonshot, Google, or other AI API key.
+Available modes:
+
+- `block` — selected block only.
+- `block+context` — selected block plus nearby lines.
+- `file` — block plus full file content, subject to fragment limits.
+
+For safety, CodeBender does not press Enter automatically unless explicitly enabled.
 
 ---
 
-## Change attribution
+## Tracking controls
 
-CodeBender supports best-effort attribution for review blocks, such as:
+CodeBender can temporarily pause tracking when you need to make unrelated manual edits.
 
-- **Manual**
-- a selected coding agent
-- **Mixed** when overlapping edits are associated with more than one source
+Commands:
 
-Use **CodeBender: Select Change Source** to indicate who is producing the next edits.
+```text
+CodeBender: Pausar seguimiento
+CodeBender: Reanudar seguimiento
+CodeBender: Pausar/Reanudar seguimiento
+```
 
-Sending feedback to an agent can also switch the active source to that agent.
+Conflict behavior after resuming can be configured with:
 
-> VS Code does not expose a cryptographically reliable signal identifying exactly which external process wrote each character. Attribution is therefore best-effort and should not be treated as audit-grade authorship evidence.
+```json
+{
+  "codeBender.pause.conflictStrategy": "ask"
+}
+```
 
----
-
-## Pause and resume tracking
-
-Pause CodeBender when you want to make manual edits that should not automatically become new review blocks.
-
-When tracking resumes, edits made during the pause can be incorporated into the baseline according to the configured conflict strategy.
-
-Available strategies:
+Values:
 
 - `ask`
 - `keep-pending`
@@ -372,133 +460,9 @@ Available strategies:
 
 ---
 
-## Review sessions
+## Configuration
 
-The **Review Sessions** view stores lightweight session summaries such as:
-
-- accepted decisions;
-- rejected decisions;
-- staged decisions;
-- feedback sent;
-- undo operations;
-- pending files when the session ended.
-
-The active session is persisted so CodeBender can recover review state after a VS Code restart.
-
----
-
-## Installation
-
-### Install the packaged VSIX
-
-1. Download `codebender-0.7.2.vsix`.
-2. Open VS Code.
-3. Press `Ctrl+Shift+P`.
-4. Run **Extensions: Install from VSIX...**.
-5. Select `codebender-0.7.2.vsix`.
-6. Run **Developer: Reload Window** if VS Code requests it.
-
-From a shell with the VS Code CLI:
-
-```bash
-code --install-extension codebender-0.7.2.vsix
-```
-
-### Upgrade from an earlier version
-
-Install the new VSIX over the existing extension and reload VS Code.
-
-Before testing a new development build on important repositories, it is still recommended to have a normal Git commit or another independent backup of valuable work.
-
-### Run from source
-
-```bash
-git clone <your-codebender-repository>
-cd codebender
-npm run check
-code .
-```
-
-Then press `F5` to launch an Extension Development Host.
-
-The 0.7.2 source archive includes the extension source, validation script, and automated Node regression tests. Run `npm test` to execute them.
-
----
-
-## Quick start
-
-1. Open a project folder in VS Code.
-2. Open the **CodeBender** activity-bar view.
-3. Click **Start Review Session**.
-4. If Git is available and `codeBender.git.fastBaseline` is enabled, CodeBender initializes the Git-first baseline.
-5. Let Claude Code or another coding agent edit the workspace.
-6. Open a changed source file.
-7. Review the inline blocks using **Accept**, **Accept + Stage**, **Reject**, or **Request correction**.
-8. Navigate remaining changes from the editor or CodeBender views.
-9. Finish the review session when the intended changes are resolved.
-10. Commit using your normal Git workflow when appropriate.
-
----
-
-## Recommended workflow with Claude Code
-
-```text
-Open Git repository
-        ↓
-Start CodeBender Review Session
-        ↓
-Select source: Claude Code
-        ↓
-Claude edits files
-        ↓
-CodeBender marks inline blocks
-        ↓
-┌───────────────────────────────┐
-│ ✓ Accept                      │
-│ ⎇ Accept + Stage             │
-│ ↶ Reject                      │
-│ 💬 Request correction         │
-└───────────────────────────────┘
-        ↓
-Claude can correct rejected block
-        ↓
-review remaining blocks
-        ↓
-tests / build
-        ↓
-Git commit
-```
-
----
-
-## Settings
-
-| Setting | Default | Purpose |
-|---|---:|---|
-| `codeBender.excludeGlob` | generated/dependency folders | Paths excluded from snapshot fallback/session scanning |
-| `codeBender.maxFileSizeMB` | `10` | Maximum file size handled for backup/restoration |
-| `codeBender.maxFiles` | `20000` | Maximum files considered in a session |
-| `codeBender.confirmReject` | `true` | Confirm full-file or reject-all operations |
-| `codeBender.inlineReview.enabled` | `true` | Enable inline block review |
-| `codeBender.inlineReview.showCodeLens` | `true` | Show review controls above hunks |
-| `codeBender.inlineReview.maxLines` | `25000` | Inline diff line limit |
-| `codeBender.explorer.badges` | `true` | Show pending-change Explorer badges |
-| `codeBender.git.enabled` | `true` | Enable Git checkpoints and staging integration |
-| `codeBender.git.fastBaseline` | `true` | Use Git-first lazy baseline when available |
-| `codeBender.git.checkpointOnDecision` | `false` | Create a Git checkpoint after every review decision |
-| `codeBender.git.maxCheckpoints` | `100` | Maximum session checkpoints displayed |
-| `codeBender.git.historyLimit` | `20` | Recent Git commits displayed |
-| `codeBender.pause.conflictStrategy` | `ask` | Resolve edits made while tracking was paused |
-| `codeBender.agent.default` | `ask` | Default agent / adapter |
-| `codeBender.agent.autoCreateTerminal` | `false` | Create an agent terminal if one is missing |
-| `codeBender.agent.executePrompt` | `false` | Automatically press Enter after inserting feedback |
-| `codeBender.agent.contextMode` | `block+context` | Feedback context: block, nearby context, or file |
-| `codeBender.agent.contextLines` | `40` | Nearby context line count |
-| `codeBender.agent.maxFragmentChars` | `12000` | Maximum prompt fragment length |
-
-### Recommended performance settings
-
-For normal Git repositories:
+Recommended starting configuration:
 
 ```json
 {
@@ -506,124 +470,225 @@ For normal Git repositories:
   "codeBender.git.fastBaseline": true,
   "codeBender.git.checkpointOnDecision": false,
   "codeBender.inlineReview.enabled": true,
-  "codeBender.inlineReview.showCodeLens": true
+  "codeBender.inlineReview.showCodeLens": true,
+  "codeBender.explorer.badges": true,
+  "codeBender.agent.default": "ask",
+  "codeBender.agent.autoCreateTerminal": false,
+  "codeBender.agent.executePrompt": false,
+  "codeBender.agent.contextMode": "block+context",
+  "codeBender.agent.contextLines": 40
 }
 ```
+
+### Important settings
+
+| Setting | Default | Purpose |
+|---|---:|---|
+| `codeBender.git.enabled` | `true` | Enable Git checkpoints and staging integration. |
+| `codeBender.git.fastBaseline` | `true` | Use lazy Git-backed session baselines. |
+| `codeBender.git.checkpointOnDecision` | `false` | Avoid creating a Git checkpoint after every review action. |
+| `codeBender.inlineReview.enabled` | `true` | Enable inline block review. |
+| `codeBender.inlineReview.showCodeLens` | `true` | Show actions above pending blocks. |
+| `codeBender.explorer.badges` | `true` | Show pending-change badges in Explorer. |
+| `codeBender.confirmReject` | `true` | Confirm destructive file/all-change rejection. |
+| `codeBender.agent.default` | `ask` | Choose the target coding agent. |
+| `codeBender.agent.executePrompt` | `false` | Automatically press Enter after inserting agent feedback. |
+| `codeBender.agent.contextMode` | `block+context` | Amount of code sent with correction feedback. |
+| `codeBender.maxFileSizeMB` | `10` | Maximum file size handled by fallback snapshots. |
+| `codeBender.maxFiles` | `20000` | Maximum files included in fallback sessions. |
+
+See `package.json` for the complete configuration schema.
+
+---
+
+## Commands
+
+Main commands available from the Command Palette:
+
+| Command | Purpose |
+|---|---|
+| `CodeBender: Iniciar sesión de revisión` | Freeze the current state as the review baseline. |
+| `CodeBender: Finalizar sesión` | Finish the active review session. |
+| `CodeBender: Actualizar cambios` | Refresh pending changes. |
+| `CodeBender: Pausar seguimiento` | Temporarily stop tracking new edits. |
+| `CodeBender: Reanudar seguimiento` | Resume tracking. |
+| `CodeBender: Siguiente cambio` | Navigate to the next pending block. |
+| `CodeBender: Cambio anterior` | Navigate to the previous pending block. |
+| `CodeBender: Deshacer última decisión` | Undo the most recent CodeBender decision. |
+| `CodeBender: Ver resumen de sesión` | Show review-session statistics. |
+| `CodeBender: Crear checkpoint Git` | Create an explicit internal Git checkpoint. |
+| `CodeBender: Ver historial Git` | Inspect available Git history/checkpoints. |
+
+Inline and tree-view actions provide the hunk/file-specific commands.
 
 ---
 
 ## Performance model
 
-### Git repository
+### Previous full-snapshot approach
 
-Preferred 0.7.0 path:
-
-```text
-Start session
-   ↓
-detect Git
-   ↓
-resolve baseline
-   ↓
-watch for relevant changes
-   ↓
-load baseline content lazily per changed file
-```
-
-This avoids the old pattern of eagerly reading, hashing, and writing a physical copy of every file in a Git repository.
-
-### Non-Git folder
-
-Fallback path:
+A large repository could require:
 
 ```text
-Start session
-   ↓
-create snapshot storage safely
-   ↓
-scan allowed files
-   ↓
-store baseline snapshots
-   ↓
-watch for changes
+find files
+  + stat files
+  + read files
+  + hash files
+  + write snapshot copies
+  + create Git checkpoint
 ```
 
-For best performance in non-Git projects, keep generated folders and dependency trees excluded.
+### Current Git-first approach
+
+For a clean Git repository:
+
+```text
+Git status
+   ↓
+HEAD baseline
+   ↓
+ready
+```
+
+If only four files change in a 10,000-file repository, CodeBender can focus review work on those files instead of duplicating the whole workspace first.
 
 ---
 
-## Privacy and security
+## Line endings and encoding
 
-CodeBender is designed to be local-first:
+CodeBender normalizes comparison semantics so ordinary `LF` versus `CRLF` differences do not create phantom whole-file review blocks.
 
-- no CodeBender backend is required;
-- no CodeBender telemetry service is implemented by the extension;
-- no AI API key is required by CodeBender itself;
-- Git-first baselines are stored through local Git objects/internal refs;
-- file snapshots are used as a fallback for non-Git/uncovered folders;
-- agent feedback is sent only to the selected integrated terminal or configured CLI adapter;
-- checkpoint creation uses temporary Git indexes rather than replacing the user's normal index.
+The review engine also avoids treating a UTF-8 BOM difference as a code change.
 
-The coding agent itself may have its own network, telemetry, retention, and privacy behavior. CodeBender does not change the privacy guarantees of Claude Code, Codex, Kimi Code, Gemini CLI, OpenCode, or custom tools.
+Opening a CRLF file whose Git baseline is LF should therefore produce **zero review blocks** until real content changes occur.
 
 ---
 
-## Safety model
+## Safety principles
 
-### CodeBender does not need to use destructive Git commands for normal review
+CodeBender is intentionally conservative around destructive operations.
 
-The review design avoids relying on broad destructive operations such as:
+### It does not need to
 
-```text
-git reset --hard
-git clean -fd
-git checkout .
+- run `git reset --hard` to start a session;
+- run `git clean` to manage review state;
+- switch branches for internal checkpoints;
+- replace your real Git index merely to create a baseline;
+- accept an entire file when you choose an inline block action.
+
+### Before a destructive bulk rejection
+
+File-level rejection can be configured to require confirmation:
+
+```json
+{
+  "codeBender.confirmReject": true
+}
 ```
 
-for ordinary block-level review decisions.
+### Agent prompts
 
-### Existing staged work
+CodeBender inserts correction prompts into local terminals. Automatic execution is disabled by default:
 
-Checkpoint creation uses an isolated index. `Accept + Stage` is different: it explicitly targets the real Git index, so CodeBender performs a baseline compatibility check before staging.
+```json
+{
+  "codeBender.agent.executePrompt": false
+}
+```
 
-### Independent backup still recommended
+This gives you an opportunity to inspect the message before sending it.
 
-CodeBender is an early-stage extension. Git remains the primary source-control system, and important work should still be committed or backed up independently before testing development builds.
+---
+
+## Architecture
+
+```text
+┌───────────────────────────────────────────────────────┐
+│                       VS Code                         │
+│                                                       │
+│  Workspace ── File watchers ── Review-state gate      │
+│      │                               │                │
+│      │                               ▼                │
+│      │                         Hunk engine             │
+│      │                               │                │
+│      │                  ┌────────────┴────────────┐   │
+│      │                  │                         │   │
+│      ▼                  ▼                         ▼   │
+│ Git baseline       Inline review             Tree view│
+│ / snapshots        + CodeLens                bulk ops │
+│      │                  │                         │   │
+│      └──────────────┬───┴──────────────┬─────────┘   │
+│                     │                  │             │
+│                Git staging       Agent feedback      │
+│                     │                  │             │
+│                     ▼                  ▼             │
+│                  Git index        Local terminal     │
+└───────────────────────────────────────────────────────┘
+```
+
+Core modules:
+
+| Module | Responsibility |
+|---|---|
+| `extension.js` | VS Code lifecycle, commands, views, decorations, session orchestration. |
+| `hunks.js` | Block detection and hunk-level operations. |
+| `review-state.js` | New-change-only review gating and session review state. |
+| `git-versioning.js` | Git-first baselines, checkpoints, history. |
+| `git-staging.js` | Safe partial staging of accepted hunks. |
+| `agent-send.js` | Agent selection, correction prompt construction, terminal transport. |
+| `tracking-pause.js` | Pause/resume behavior and conflict handling. |
+
+More detail is available in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Testing
+
+From the source directory:
+
+```bash
+npm test
+npm run check
+```
+
+The regression suite covers the critical review paths, including:
+
+- independent hunks in the same file;
+- hunk-level accept and reject;
+- partial `Accept + Stage`;
+- preservation of pre-existing staged/unstaged work;
+- insertions and deletions;
+- LF/CRLF handling;
+- BOM handling;
+- new-change-only review gating;
+- agent prompt transport;
+- file-level bulk accept/reject actions.
 
 ---
 
 ## Troubleshooting
 
-### Session startup previously failed with `ENOENT ... /snapshots/*.bin`
+### Opening a file shows changes even though I did not edit it
 
-The 0.7.0 snapshot fallback initializes its storage directories before concurrent snapshot work begins. In Git repositories, the fast baseline also avoids full-project snapshot creation in the normal path.
+Make sure you are running a build that includes the new-change-only gate and EOL normalization. Current builds ensure that simply opening or activating a file does not create review actions.
 
-After upgrading:
+If the problem persists, inspect repository-specific transformations such as `.gitattributes`, format-on-open/save extensions, generated files, or non-standard encodings.
 
-1. Install `codebender-0.7.2.vsix`.
-2. Run **Developer: Reload Window**.
-3. Open a Git-backed project.
-4. Start a new review session.
-5. Keep `codeBender.git.fastBaseline` enabled.
+### `Accept + Stage` fails
 
-### Startup is still slow
+CodeBender intentionally aborts if the selected hunk cannot be applied safely to the current Git index. Check whether the same lines already contain staged or pre-session edits.
 
-Check whether the current workspace is actually inside a Git repository.
+### `Request correction` appears as multiple terminal messages
 
-For Git repositories, verify:
+0.7.4+ uses bracketed-paste transport for multiline prompts. Confirm that you are using the current build and that the target terminal supports standard bracketed paste behavior.
 
-```json
-{
-  "codeBender.git.enabled": true,
-  "codeBender.git.fastBaseline": true
-}
-```
+### Snapshot startup error: `ENOENT ... globalStorage/.../snapshots`
 
-For non-Git folders, review `codeBender.excludeGlob` and avoid snapshotting dependency/build directories.
+Current builds create snapshot directories before concurrent fallback workers start. Reload VS Code after updating from an older build.
 
-### Inline controls do not appear
+### No inline controls appear
 
-Verify:
+Check:
 
 ```json
 {
@@ -632,117 +697,55 @@ Verify:
 }
 ```
 
-Then save the changed file and run **CodeBender: Refresh Changes** if necessary.
-
-### A deleted file has no inline buttons
-
-A deleted file has no current editor document to decorate. Deleted files remain reviewable from the CodeBender side view.
-
-### `Accept + Stage` is refused
-
-This is intentional when the existing Git index does not match the review baseline. The safety check prevents CodeBender from overwriting ambiguous pre-existing staged work.
-
----
-
-## Known limitations
-
-- The private inline UI used internally by GitHub Copilot is not a public reusable VS Code extension component. CodeBender reproduces the review workflow using public APIs such as CodeLens, editor decorations, gutter icons, Tree Views, file decorations, terminals, and Git.
-- Change attribution is best-effort rather than cryptographically reliable.
-- Binary files and files above configured limits may be handled at file level instead of line/hunk level.
-- Deleted files cannot display inline controls in a document that no longer exists.
-- `Accept + Stage` intentionally refuses ambiguous index states.
-- Multi-root workspaces can use a hybrid of Git-backed and snapshot-backed roots.
-
----
-
-## Architecture
-
-```text
-VS Code Extension Host
-│
-├── Session / baseline engine
-│   ├── Git-first lazy baseline
-│   ├── non-Git snapshot fallback
-│   ├── baseline content cache
-│   ├── hunk engine
-│   └── pause / resume
-│
-├── Inline review UX
-│   ├── CodeLens actions
-│   ├── gutter markers
-│   ├── line decorations
-│   ├── Explorer badges
-│   ├── Review Changes
-│   └── Review Sessions
-│
-├── Git integration
-│   ├── temporary index checkpoints
-│   ├── internal refs
-│   ├── Git Timeline
-│   ├── safe partial staging
-│   └── decision rollback
-│
-└── Agent adapters
-    ├── Claude Code
-    ├── Codex
-    ├── Kimi Code
-    ├── Gemini CLI
-    ├── OpenCode
-    ├── Active terminal
-    └── Custom CLI
-```
-
-CodeBender has no runtime npm dependencies.
-
----
-
-## Development
-
-Validate JavaScript syntax with:
-
-```bash
-npm run check
-```
-
-The current 0.7.2 source archive includes automated Node regression tests for hunk independence and partial Git staging. Run `npm test` to execute them.
-
-Recommended development flow:
-
-```bash
-npm run check
-code .
-```
-
-Then press `F5` to run an Extension Development Host and test the review workflow on a disposable Git repository.
+Also confirm that a review session is active and that the edit happened after the session started.
 
 ---
 
 ## Project status
 
-CodeBender is an early open-source project. Version 0.7.2 is intended for active testing and iteration. Use normal Git commits or another independent backup for important work while evaluating development builds.
+CodeBender is under active development. The current design focuses on dependable local review semantics before adding broader automation.
 
-## Roadmap
+### Current priorities
 
-- richer inline feedback threads;
-- closer Copilot-like inline interaction using public VS Code APIs;
-- better automatic agent-turn detection where supported;
-- faster non-Git snapshot fallback;
-- more robust multi-root session UX;
-- test/build validation attached to accepted blocks;
-- commit-message generation from accepted review history;
-- session-level accepted/rejected change reports;
-- optional MCP adapter layer;
-- more language-aware context extraction;
-- Marketplace packaging and release automation.
+- make hunk identity more resilient as agents repeatedly edit the same region;
+- improve visual parity with native AI-edit review experiences;
+- strengthen multi-root workspace behavior;
+- improve agent attribution and session analytics;
+- add richer Git checkpoint/history UX;
+- expand automated integration coverage inside a real VS Code Extension Host.
+
+---
 
 ## Contributing
 
-Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions, bug reports, reproducible edge cases, and design proposals are welcome.
+
+Before opening a pull request, please read [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Useful reports include:
+
+- VS Code version;
+- operating system;
+- Git version;
+- whether the repository was clean or dirty at session start;
+- line-ending configuration (`.gitattributes`, `core.autocrlf`);
+- exact CodeBender action used;
+- minimal reproduction steps.
+
+---
+
+## Security
+
+Please do not publish sensitive vulnerability details in a public issue. See [`SECURITY.md`](SECURITY.md) for the project security process.
+
+---
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+CodeBender is released under the [MIT License](LICENSE).
 
-## Trademark / affiliation
+---
 
-CodeBender is an independent open-source project. It is not affiliated with or endorsed by GitHub, Microsoft, Anthropic, OpenAI, Moonshot AI, Google, or OpenCode.
+<p align="center">
+  <strong>Keep the speed of AI coding agents. Keep the final decision human.</strong>
+</p>

@@ -510,6 +510,7 @@ class ChangeReviewController {
       if (this.shouldIgnore(uri)) continue;
       const located = this.locate(uri);
       if (!located) continue;
+      if (!this.baseline.has(located.key) && await this.isIgnoredByGit(located)) continue;
       try {
         const stat = await vscode.workspace.fs.stat(uri);
         if (stat.type === vscode.FileType.File) locatedByKey.set(located.key, { uri, stat, located });
@@ -521,7 +522,9 @@ class ChangeReviewController {
     for (const document of vscode.workspace.textDocuments) {
       if (document.uri.scheme !== 'file' || !document.isDirty || this.shouldIgnore(document.uri)) continue;
       const located = this.locate(document.uri);
-      if (located) locatedByKey.set(located.key, { uri: document.uri, stat: undefined, located });
+      if (!located) continue;
+      if (!this.baseline.has(located.key) && await this.isIgnoredByGit(located)) continue;
+      locatedByKey.set(located.key, { uri: document.uri, stat: undefined, located });
     }
 
     const result = new Map();
@@ -538,7 +541,7 @@ class ChangeReviewController {
       const item = currentByKey.get(key);
       const current = item?.current;
       state[key] = current?.exists
-        ? { exists: true, hash: current.hash, size: current.stat?.size, mtime: current.stat?.mtime }
+        ? { exists: true, hash: current.hash, reviewHash: current.reviewHash, size: current.stat?.size, mtime: current.stat?.mtime }
         : { exists: false };
     }
     return state;
