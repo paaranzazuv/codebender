@@ -1,0 +1,606 @@
+{
+  "name": "codebender",
+  "displayName": "CodeBender",
+  "description": "Human-in-the-loop review for AI coding agents: accept, reject, stage, annotate and version code changes by block directly in VS Code.",
+  "version": "0.7.5",
+  "publisher": "paaranzazuv",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "codebender",
+    "ai-coding-agent",
+    "human-in-the-loop",
+    "inline-review",
+    "accept",
+    "reject",
+    "git",
+    "partial-stage",
+    "hunks",
+    "claude-code",
+    "codex",
+    "kimi",
+    "gemini-cli",
+    "opencode",
+    "review-loop",
+    "versioning"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:codeBender.changedFiles",
+    "onView:codeBender.gitHistory",
+    "onView:codeBender.sessions",
+    "onCommand:codeBender.startSession"
+  ],
+  "main": "./extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeBender.startSession",
+        "title": "CodeBender: Iniciar sesión de revisión",
+        "icon": "$(record)"
+      },
+      {
+        "command": "codeBender.endSession",
+        "title": "CodeBender: Finalizar sesión",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "codeBender.refresh",
+        "title": "CodeBender: Actualizar cambios",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codeBender.pauseTracking",
+        "title": "CodeBender: Pausar seguimiento",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "codeBender.resumeTracking",
+        "title": "CodeBender: Reanudar seguimiento",
+        "icon": "$(play)"
+      },
+      {
+        "command": "codeBender.toggleTracking",
+        "title": "CodeBender: Pausar/Reanudar seguimiento",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "codeBender.openFile",
+        "title": "Abrir archivo"
+      },
+      {
+        "command": "codeBender.acceptFile",
+        "title": "CodeBender: Aceptar todos los cambios del archivo",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "codeBender.rejectFile",
+        "title": "CodeBender: Rechazar todos los cambios del archivo",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "codeBender.acceptDeletedBlock",
+        "title": "Aceptar bloque eliminado",
+        "icon": "$(check)"
+      },
+      {
+        "command": "codeBender.acceptAndStageDeletedBlock",
+        "title": "Aceptar + Stage bloque eliminado",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "codeBender.rejectDeletedBlock",
+        "title": "Rechazar bloque eliminado",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "codeBender.acceptHunk",
+        "title": "Aceptar bloque",
+        "icon": "$(check)"
+      },
+      {
+        "command": "codeBender.acceptAndStageHunk",
+        "title": "Aceptar + Stage bloque",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "codeBender.rejectHunk",
+        "title": "Rechazar bloque",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "codeBender.sendHunkToAgent",
+        "title": "CodeBender: Pedir corrección del bloque",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "codeBender.nextChange",
+        "title": "CodeBender: Siguiente cambio",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "codeBender.previousChange",
+        "title": "CodeBender: Cambio anterior",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "codeBender.undoLastDecision",
+        "title": "CodeBender: Deshacer última decisión",
+        "icon": "$(undo)"
+      },
+      {
+        "command": "codeBender.setChangeSource",
+        "title": "CodeBender: Seleccionar origen de cambios",
+        "icon": "$(person)"
+      },
+      {
+        "command": "codeBender.setManualSource",
+        "title": "CodeBender: Marcar próximos cambios como manuales",
+        "icon": "$(person)"
+      },
+      {
+        "command": "codeBender.showReviewLog",
+        "title": "CodeBender: Ver registro de revisión",
+        "icon": "$(output)"
+      },
+      {
+        "command": "codeBender.showSessionSummary",
+        "title": "CodeBender: Ver resumen de sesión",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "codeBender.createCheckpoint",
+        "title": "CodeBender: Crear checkpoint Git",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "codeBender.showGitHistory",
+        "title": "CodeBender: Ver historial Git",
+        "icon": "$(history)"
+      },
+      {
+        "command": "codeBender.restoreCheckpoint",
+        "title": "Restaurar checkpoint Git",
+        "icon": "$(history)"
+      },
+      {
+        "command": "codeBender.copyCheckpointHash",
+        "title": "Copiar hash del checkpoint",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "codeBender.refreshGitState",
+        "title": "CodeBender: Actualizar Git",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codeBender.restoreGitCommit",
+        "title": "Restaurar esta versión Git",
+        "icon": "$(history)"
+      },
+      {
+        "command": "codeBender.copyGitCommitHash",
+        "title": "Copiar hash del commit",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "codeBender.openSourceControl",
+        "title": "Abrir Control de código fuente",
+        "icon": "$(source-control)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeBender",
+          "title": "CodeBender",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "codeBender": [
+        {
+          "id": "codeBender.changedFiles",
+          "name": "Review Changes"
+        },
+        {
+          "id": "codeBender.gitHistory",
+          "name": "Git Timeline"
+        },
+        {
+          "id": "codeBender.sessions",
+          "name": "Review Sessions"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "codeBender.changedFiles",
+        "contents": "No hay una sesión activa.\n[Iniciar sesión de revisión](command:codeBender.startSession)",
+        "when": "!codeBender.sessionActive"
+      },
+      {
+        "view": "codeBender.changedFiles",
+        "contents": "El seguimiento está pausado.\n[Reanudar seguimiento](command:codeBender.resumeTracking)",
+        "when": "codeBender.sessionActive && codeBender.sessionPaused"
+      },
+      {
+        "view": "codeBender.changedFiles",
+        "contents": "No hay cambios pendientes. Los nuevos cambios aparecerán inline dentro del archivo.\n[Actualizar](command:codeBender.refresh)",
+        "when": "codeBender.sessionActive && !codeBender.sessionPaused && !codeBender.hasChanges"
+      },
+      {
+        "view": "codeBender.gitHistory",
+        "contents": "Aquí se muestran el repositorio, el staging, checkpoints internos y commits recientes.\n[Actualizar Git](command:codeBender.refreshGitState)",
+        "when": "!codeBender.gitAvailable"
+      },
+      {
+        "view": "codeBender.sessions",
+        "contents": "Las sesiones terminadas se guardan aquí con su resumen.\n[Ver resumen actual](command:codeBender.showSessionSummary)",
+        "when": "codeBender.sessionActive"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "codeBender.startSession",
+          "when": "view == codeBender.changedFiles && !codeBender.sessionActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeBender.refresh",
+          "when": "view == codeBender.changedFiles && codeBender.sessionActive && !codeBender.sessionPaused",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeBender.pauseTracking",
+          "when": "view == codeBender.changedFiles && codeBender.sessionActive && !codeBender.sessionPaused",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "codeBender.resumeTracking",
+          "when": "view == codeBender.changedFiles && codeBender.sessionActive && codeBender.sessionPaused",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "codeBender.endSession",
+          "when": "view == codeBender.changedFiles && codeBender.sessionActive",
+          "group": "navigation@4"
+        },
+        {
+          "command": "codeBender.refreshGitState",
+          "when": "view == codeBender.gitHistory",
+          "group": "navigation@0"
+        },
+        {
+          "command": "codeBender.createCheckpoint",
+          "when": "view == codeBender.gitHistory && codeBender.sessionActive && codeBender.gitAvailable",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeBender.showGitHistory",
+          "when": "view == codeBender.gitHistory && codeBender.gitAvailable",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codeBender.openSourceControl",
+          "when": "view == codeBender.gitHistory && codeBender.gitAvailable",
+          "group": "navigation@4"
+        },
+        {
+          "command": "codeBender.showSessionSummary",
+          "when": "view == codeBender.sessions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeBender.showReviewLog",
+          "when": "view == codeBender.sessions && codeBender.sessionActive",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "codeBender.acceptFile",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.change",
+          "group": "inline@1"
+        },
+        {
+          "command": "codeBender.rejectFile",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.change",
+          "group": "inline@2"
+        },
+        {
+          "command": "codeBender.openFile",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.change",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeBender.restoreCheckpoint",
+          "when": "view == codeBender.gitHistory && viewItem == codeBender.gitCheckpoint",
+          "group": "inline@1"
+        },
+        {
+          "command": "codeBender.copyCheckpointHash",
+          "when": "view == codeBender.gitHistory && viewItem == codeBender.gitCheckpoint",
+          "group": "inline@2"
+        },
+        {
+          "command": "codeBender.restoreGitCommit",
+          "when": "view == codeBender.gitHistory && viewItem == codeBender.gitCommit",
+          "group": "inline@1"
+        },
+        {
+          "command": "codeBender.copyGitCommitHash",
+          "when": "view == codeBender.gitHistory && viewItem == codeBender.gitCommit",
+          "group": "inline@2"
+        },
+        {
+          "command": "codeBender.openSourceControl",
+          "when": "view == codeBender.gitHistory && viewItem == codeBender.gitRepository",
+          "group": "inline@1"
+        },
+        {
+          "command": "codeBender.acceptDeletedBlock",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.changeDeleted",
+          "group": "inline@1"
+        },
+        {
+          "command": "codeBender.acceptAndStageDeletedBlock",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.changeDeleted",
+          "group": "inline@2"
+        },
+        {
+          "command": "codeBender.rejectDeletedBlock",
+          "when": "view == codeBender.changedFiles && viewItem == codeBender.changeDeleted",
+          "group": "inline@3"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "codeBender.previousChange",
+          "when": "codeBender.sessionActive && codeBender.hasChanges",
+          "group": "navigation@20"
+        },
+        {
+          "command": "codeBender.nextChange",
+          "when": "codeBender.sessionActive && codeBender.hasChanges",
+          "group": "navigation@21"
+        },
+        {
+          "command": "codeBender.undoLastDecision",
+          "when": "codeBender.sessionActive",
+          "group": "navigation@22"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeBender",
+      "properties": {
+        "codeBender.excludeGlob": {
+          "type": "string",
+          "default": "**/{.git,node_modules,.next,dist,build,out,target,vendor,.venv,venv,__pycache__,coverage}/**",
+          "description": "Patrón glob excluido de las sesiones."
+        },
+        "codeBender.maxFileSizeMB": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Tamaño máximo por archivo para respaldo/restauración."
+        },
+        "codeBender.maxFiles": {
+          "type": "number",
+          "default": 20000,
+          "minimum": 100,
+          "maximum": 100000,
+          "description": "Máximo de archivos incluidos en una sesión."
+        },
+        "codeBender.confirmReject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Confirmar rechazo de archivos completos o todos los cambios."
+        },
+        "codeBender.inlineReview.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar revisión inline por bloques."
+        },
+        "codeBender.inlineReview.showCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar controles Aceptar/Rechazar/Stage/Feedback sobre cada bloque."
+        },
+        "codeBender.inlineReview.maxLines": {
+          "type": "number",
+          "default": 25000,
+          "minimum": 500,
+          "maximum": 100000,
+          "description": "Límite de líneas para diff inline."
+        },
+        "codeBender.explorer.badges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar badges de cambios pendientes en el Explorer."
+        },
+        "codeBender.git.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar checkpoints Git internos y funciones de staging."
+        },
+        "codeBender.git.fastBaseline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Usar Git como copia base perezosa para iniciar sesiones sin copiar todos los archivos."
+        },
+        "codeBender.git.checkpointOnDecision": {
+          "type": "boolean",
+          "default": false,
+          "description": "Crear checkpoint Git después de cada decisión. Desactivado por defecto para mayor rendimiento; los checkpoints manuales siguen disponibles."
+        },
+        "codeBender.git.maxCheckpoints": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Máximo de checkpoints mostrados."
+        },
+        "codeBender.git.historyLimit": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Cantidad de commits Git recientes mostrados."
+        },
+        "codeBender.pause.conflictStrategy": {
+          "type": "string",
+          "default": "ask",
+          "enum": [
+            "ask",
+            "keep-pending",
+            "absorb-all"
+          ],
+          "description": "Cómo resolver archivos pendientes editados mientras el seguimiento estaba pausado."
+        },
+        "codeBender.agent.default": {
+          "type": "string",
+          "default": "ask",
+          "description": "Agente predeterminado: ask, claude, kimi, codex, gemini, opencode, active o un ID personalizado."
+        },
+        "codeBender.agent.autoCreateTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Crear e iniciar una terminal de agente si no existe."
+        },
+        "codeBender.agent.executePrompt": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enviar Enter automáticamente después de insertar el prompt. Desactivado por seguridad."
+        },
+        "codeBender.agent.startupDelayMs": {
+          "type": "number",
+          "default": 1200,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Espera antes de insertar el prompt al crear una terminal."
+        },
+        "codeBender.agent.maxFragmentChars": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 1000,
+          "maximum": 100000,
+          "description": "Máximo de caracteres enviados al agente."
+        },
+        "codeBender.agent.contextMode": {
+          "type": "string",
+          "default": "block+context",
+          "enum": [
+            "block",
+            "block+context",
+            "file"
+          ],
+          "enumDescriptions": [
+            "Solo el bloque",
+            "Bloque más líneas cercanas",
+            "Bloque más archivo completo"
+          ],
+          "description": "Contexto incluido al pedir una corrección."
+        },
+        "codeBender.agent.contextLines": {
+          "type": "number",
+          "default": 40,
+          "minimum": 5,
+          "maximum": 500,
+          "description": "Líneas cercanas incluidas en modo block+context."
+        },
+        "codeBender.agent.claudeCommand": {
+          "type": "string",
+          "default": "claude",
+          "description": "Comando de Claude Code."
+        },
+        "codeBender.agent.kimiCommand": {
+          "type": "string",
+          "default": "kimi",
+          "description": "Comando de Kimi Code."
+        },
+        "codeBender.agent.codexCommand": {
+          "type": "string",
+          "default": "codex",
+          "description": "Comando de Codex."
+        },
+        "codeBender.agent.geminiCommand": {
+          "type": "string",
+          "default": "gemini",
+          "description": "Comando de Gemini CLI."
+        },
+        "codeBender.agent.openCodeCommand": {
+          "type": "string",
+          "default": "opencode",
+          "description": "Comando de OpenCode."
+        },
+        "codeBender.agent.adapters": {
+          "type": "array",
+          "default": [],
+          "description": "Adapters CLI personalizados. Cada uno necesita id, label y command; matchers es opcional.",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "command"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "command": {
+                "type": "string"
+              },
+              "matchers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "codeBender.nextChange",
+        "key": "alt+shift+down",
+        "mac": "alt+shift+down",
+        "when": "editorTextFocus && codeBender.sessionActive"
+      },
+      {
+        "command": "codeBender.previousChange",
+        "key": "alt+shift+up",
+        "mac": "alt+shift+up",
+        "when": "editorTextFocus && codeBender.sessionActive"
+      },
+      {
+        "command": "codeBender.undoLastDecision",
+        "key": "ctrl+alt+z",
+        "mac": "cmd+alt+z",
+        "when": "codeBender.sessionActive"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check extension.js && node --check hunks.js && node --check git-versioning.js && node --check git-staging.js && node --check agent-send.js && node --check tracking-pause.js && node --check review-state.js",
+    "package": "vsce package --no-rewrite-relative-links"
+  }
+}
