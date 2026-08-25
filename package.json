@@ -2,7 +2,7 @@
   "name": "codebender",
   "displayName": "CodeBender",
   "description": "Human-in-the-loop review for AI coding agents: accept, reject, stage, annotate and version code changes by block directly in VS Code.",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "publisher": "paaranzazuv",
   "license": "MIT",
   "repository": {

@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { buildResumePlan } = require('../tracking-pause');
+const { buildResumePlan, isRestorableBaselineMode } = require('../tracking-pause');
 const { canonicalizeTextForReview } = require('../hunks');
 
 function reviewHashOf(text) {
@@ -47,4 +47,40 @@ test('un archivo con un cambio de contenido real durante la pausa si se absorbe'
   const plan = buildResumePlan({ pausedByKey, currentByKey, pendingKeys: [], conflictStrategy: 'keep-pending' });
 
   assert.deepEqual(plan.absorbKeys, ['file:///repo::a.txt']);
+});
+
+test('una sesion git-fast persistida sin baselineCommit no se considera restaurable', () => {
+  const session = {
+    baselineMode: 'git-fast',
+    git: { repos: [{ repoRoot: '/repo', branch: 'main' }] }
+  };
+  assert.equal(isRestorableBaselineMode(session), false);
+});
+
+test('una sesion persistida sin baselineMode (esquema viejo) no se considera restaurable', () => {
+  const session = {
+    git: { repos: [{ repoRoot: '/repo', baselineCommit: 'abc123' }] }
+  };
+  assert.equal(isRestorableBaselineMode(session), false);
+});
+
+test('una sesion git-fast persistida con baselineCommit en todos sus repos si es restaurable', () => {
+  const session = {
+    baselineMode: 'git-fast',
+    git: { repos: [{ repoRoot: '/repo', baselineCommit: 'abc123' }] }
+  };
+  assert.equal(isRestorableBaselineMode(session), true);
+});
+
+test('una sesion hybrid con un repo sin baselineCommit no es restaurable', () => {
+  const session = {
+    baselineMode: 'hybrid',
+    git: { repos: [{ repoRoot: '/repo1', baselineCommit: 'abc123' }, { repoRoot: '/repo2' }] }
+  };
+  assert.equal(isRestorableBaselineMode(session), false);
+});
+
+test('una sesion snapshot (sin Git) es restaurable sin requerir repos', () => {
+  const session = { baselineMode: 'snapshot' };
+  assert.equal(isRestorableBaselineMode(session), true);
 });

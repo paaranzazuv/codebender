@@ -43,4 +43,22 @@ function buildResumePlan({ pausedByKey = {}, currentByKey = {}, pendingKeys = []
   return { absorbKeys, preserveKeys, conflictKeys, unchangedPendingKeys, unchangedKeys };
 }
 
-module.exports = { buildResumePlan, stateSignature };
+// Un session.json persistido de una versión anterior del esquema puede carecer
+// de campos que el motor de refresco necesita para elegir el motor correcto
+// (git-fast/hybrid vs. snapshot). Restaurarlo de todos modos hace que
+// fullRefresh() caiga silenciosamente al escaneo de snapshot completo, y como
+// el baseline de una sesión git-fast es disperso a propósito, cada archivo sin
+// entrada de baseline se lee como "creado": todo el repositorio se marca como
+// nuevo. Mejor rechazar la restauración que arriesgar ese falso positivo masivo.
+function isRestorableBaselineMode(session) {
+  const mode = session?.baselineMode;
+  if (mode !== 'git-fast' && mode !== 'hybrid' && mode !== 'snapshot') return false;
+  if (mode === 'git-fast' || mode === 'hybrid') {
+    const repos = session?.git?.repos || [];
+    if (!repos.length) return false;
+    if (!repos.every((repo) => Boolean(repo?.baselineCommit))) return false;
+  }
+  return true;
+}
+
+module.exports = { buildResumePlan, stateSignature, isRestorableBaselineMode };

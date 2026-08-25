@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%5E1.85.0-007ACC?logo=visualstudiocode&logoColor=white" />
-  <img alt="Version" src="https://img.shields.io/badge/version-0.7.6-4C8BF5" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.7.7-4C8BF5" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green" />
   <img alt="Git-first" src="https://img.shields.io/badge/baseline-Git--first-F05032?logo=git&logoColor=white" />
   <img alt="Provider neutral" src="https://img.shields.io/badge/agents-provider--neutral-7B61FF" />
@@ -158,7 +158,7 @@ CodeBender 与供应商无关。内置的终端适配器支持：
 
 ### 从 VSIX 安装
 
-1. 下载 `codebender-0.7.6.vsix`。
+1. 下载 `codebender-0.7.7.vsix`。
 2. 打开 VS Code。
 3. 按下 `Ctrl+Shift+P` / `Cmd+Shift+P`。
 4. 运行 **Extensions: Install from VSIX...**。

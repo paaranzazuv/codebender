@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { GitVersioning } = require('./git-versioning');
 const { GitStaging } = require('./git-staging');
-const { buildResumePlan } = require('./tracking-pause');
+const { buildResumePlan, isRestorableBaselineMode } = require('./tracking-pause');
 const {
   AGENTS,
   allAgentDefinitions,
@@ -2290,6 +2290,12 @@ class ChangeReviewController {
       const raw = await vscode.workspace.fs.readFile(manifestUri);
       const parsed = JSON.parse(Buffer.from(raw).toString('utf8'));
       if (![5, MANIFEST_VERSION].includes(parsed.version) || !parsed.session?.active) return;
+      if (!isRestorableBaselineMode(parsed.session)) {
+        vscode.window.showWarningMessage(
+          'No se pudo recuperar la sesión anterior de CodeBender de forma segura (faltan datos de línea base). Inicia una nueva sesión de revisión.'
+        );
+        return;
+      }
       this.session = parsed.session;
       this.session.stats = normalizeStats(this.session.stats);
       this.session.decisionHistory = this.session.decisionHistory || [];

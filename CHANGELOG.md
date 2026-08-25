@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.7
+
+- Fixed a restart false-positive: recovering a persisted session whose stored data is missing the fields a Git-fast/hybrid baseline needs (`baselineMode`, or a repo's `baselineCommit`) — e.g. a session.json written by an older CodeBender build — silently fell back to full-workspace snapshot comparison. Since a Git-fast baseline is sparse by design, every file with no baseline entry then read as newly "created", flagging the entire repository as pending on reload.
+- CodeBender now validates that a persisted session's baseline data is actually usable before restoring it. If it is not, the session is discarded (same as an incompatible schema version) instead of being loaded into a broken state, and the user is prompted to start a new review session.
+- Added regression tests for the new validation.
+
 ## 0.7.6
 
 - Fixed pause/resume tracking picking up Git-ignored files (e.g. IDE-managed `.vscode/settings.json`) as pending review changes. Files with no prior baseline that are ignored by Git are now skipped by the pause/resume scan, matching the live-tracking behavior.
